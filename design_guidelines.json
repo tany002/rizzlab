@@ -1,0 +1,103 @@
+{
+  "theme_archetype": {
+    "domain": "AI Coaching SaaS",
+    "theme": "light",
+    "archetype": "Archetype 4 (Swiss & High-Contrast) + Premium SaaS",
+    "reasoning": "A dating coach for men should feel like an objective, high-end operating system (like Linear or Stripe) to build trust. We are stripping away the 'dating app' aesthetic entirely. We use the requested Indigo (#6D5EF7) sparingly as a kinetic trigger against a stark monochromatic base with generous whitespace."
+  },
+  "colors": {
+    "background": "#FAFAFB",
+    "surface": "#FFFFFF",
+    "surface_glass": "rgba(255, 255, 255, 0.7)",
+    "primary": "#6D5EF7",
+    "primary_hover": "#5A4CE3",
+    "text_main": "#09090B",
+    "text_secondary": "#52525B",
+    "border": "#E4E4E7",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "analysis_bg": "#0A0A0A",
+    "analysis_text": "#FAFAFB"
+  },
+  "typography": {
+    "primary_font": "Outfit",
+    "secondary_font": "Inter",
+    "hierarchy": {
+      "heading_h1": "font-outfit text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-[#09090B]",
+      "heading_h2": "font-outfit text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight text-[#09090B]",
+      "heading_h3": "font-outfit text-xl sm:text-2xl font-medium text-[#09090B]",
+      "body": "font-inter text-base text-[#52525B] leading-relaxed",
+      "small_label": "font-inter text-xs font-semibold tracking-[0.2em] uppercase text-[#52525B]"
+    },
+    "note": "User requested Inter, but E1 principles ban Inter for headings to maintain a premium feel. We override headings with 'Outfit' for a confident, structural SaaS look, while retaining 'Inter' for body text for maximum legibility."
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing Philosophy. Use p-8 to p-12 for card padding. Containers with borders must have internal padding to prevent collision.",
+    "border_radius": "rounded-2xl to rounded-3xl (16px - 24px) for cards, rounded-full for buttons",
+    "grids": {
+      "landing_page": "Mode A (Tetris Grid): Asymmetrical bento grid with gap-8, mixing large dominant visuals with smaller metric cards.",
+      "dashboard": "Mode B (Control Room): Dense layout, grid-cols-1 md:grid-cols-3 or 4, gap-6. Use h-full on children to ensure stretch."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#6D5EF7] hover:bg-[#5A4CE3] text-white rounded-full px-8 py-4 font-medium transition-transform hover:-translate-y-1 shadow-lg shadow-[#6D5EF7]/20",
+      "secondary": "bg-white border border-[#E4E4E7] text-[#09090B] rounded-full px-8 py-4 font-medium hover:bg-[#FAFAFB] transition-colors"
+    },
+    "cards": {
+      "style": "bg-white rounded-[20px] border border-[#E4E4E7]/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+      "hover": "hover:-translate-y-1 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] transition-all duration-300"
+    },
+    "header_nav": {
+      "style": "sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm"
+    },
+    "inputs": {
+      "style": "bg-white border border-[#E4E4E7] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#6D5EF7] focus:border-transparent outline-none transition-all"
+    },
+    "score_card": {
+      "style": "Relative container with 'Tracing Beam' inspired glowing border effect on hover. Large typography for numbers, subtle #6D5EF7 tint for high scores."
+    }
+  },
+  "motion_and_interactions": {
+    "global": "Smooth Framer Motion. Use staggerChildren for list items.",
+    "page_transition": "Fade in with subtle slide up (y: 10, opacity: 0 to y: 0, opacity: 1).",
+    "hover_states": "All interactive elements must lift (-translate-y-1) and increase shadow slightly. NO abrupt color changes."
+  },
+  "key_features_design": {
+    "landing_page": "Hero with H1 centered, subtext, large primary button. Below fold: Asymmetric Bento Grid explaining 'How it Works', Testimonials in masonry layout.",
+    "onboarding_flow": "Single column centered 'Typeform-style' container. Large questions, selectable high-radius cards for answers. Thin #6D5EF7 progress bar at top.",
+    "loading_analysis_screen": "DARK PREMIUM. Background switches to #0A0A0A. Glowing #6D5EF7 loader, terminal-style sequential text ('Analyzing facial symmetry...', 'Scanning wardrobe...'). This creates perceived value for the AI.",
+    "ai_dashboard": "Left sidebar (w-64) with Lucide icons. Main area: Top section has global score, below is Bento layout with Photo Analysis Grid (images with AI bounding boxes), Bio Review, and Style Roadmap."
+  },
+  "media": {
+    "icons": "lucide-react (Premium, simple outlines)",
+    "image_urls": [
+      {
+        "category": "hero_or_dashboard_preview",
+        "url": "https://images.unsplash.com/photo-1616434116710-c45ce99c1a77?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwzfHxjb25maWRlbnQlMjBtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODMwMDg4Njh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Confident man with glasses (Use in hero bento card or photo analysis dashboard example)"
+      },
+      {
+        "category": "photo_analysis_example",
+        "url": "https://images.unsplash.com/photo-1557862921-37829c790f19?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxjb25maWRlbnQlMjBtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODMwMDg4Njh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Man with crossed arms (Use as a secondary profile photo example in dashboard)"
+      },
+      {
+        "category": "abstract_background",
+        "url": "https://images.pexels.com/photos/8004070/pexels-photo-8004070.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Clean white workspace (Use as background layer for testimonials or lower landing page sections, overlay with bg-white/80)"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: The codebase uses JavaScript (.js/.jsx), NOT TypeScript. Do not create .tsx files.",
+    "CRITICAL: Currency must be formatted as INR (₹). E.g., ₹2,499.",
+    "Add 'Outfit' and 'Inter' to index.html from Google Fonts: <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">",
+    "Update tailwind.config.js to include fonts: fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] }",
+    "Ensure all interactive elements have data-testid attributes (e.g., data-testid='start-coaching-btn').",
+    "For the Loading/Analysis screen, completely flip the theme context to dark (#0A0A0A background) to make the AI feel 'heavy' and premium.",
+    "Use lucide-react for all icons. Avoid generic dating icons (no hearts/flames); use targets, charts, user profiles, and shields to maintain the SaaS feel.",
+    "For cards, use the shadow-[0_8px_30px_rgb(0,0,0,0.04)] utility with rounded-[20px] and a 1px border of #E4E4E7/50."
+  ]
+}
