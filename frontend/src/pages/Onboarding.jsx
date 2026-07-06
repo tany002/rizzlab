@@ -69,7 +69,10 @@ export default function Onboarding() {
     if (step === STEPS.length - 1) {
       try {
         await api.post("/onboarding", data);
-      } catch { /* not logged in — still allow demo flow */ }
+      } catch (err) {
+        // Non-blocking: user might not be logged in yet; log but let flow continue
+        console.warn("[onboarding] save skipped", err?.response?.status || err?.message);
+      }
       navigate("/payment?plan=ai_review");
       return;
     }

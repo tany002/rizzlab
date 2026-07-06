@@ -7,16 +7,20 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const { data } = await api.get("/auth/me");
-      setUser(data);
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const checkAuth = useCallback(async () => {
+      try {
+        const { data } = await api.get("/auth/me");
+        setUser(data);
+      } catch (err) {
+        // 401 on public pages is expected; only log unexpected errors
+        if (err?.response && err.response.status !== 401) {
+          console.error("[auth] /me check failed", err);
+        }
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.

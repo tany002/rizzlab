@@ -37,12 +37,15 @@ export default function Dashboard({ demoData }) {
         const { data } = await api.get("/report");
         setReport(data.report);
         setUnlocked(data.unlocked);
-      } catch {
+      } catch (err) {
+        console.warn("[dashboard] /report unavailable, falling back to sample", err?.response?.status);
         try {
           const { data } = await api.get("/sample-report");
           setReport(data.report);
           setUnlocked(false);
-        } catch { /* ignore */ }
+        } catch (err2) {
+          console.error("[dashboard] sample-report failed", err2);
+        }
       } finally {
         setLoading(false);
       }

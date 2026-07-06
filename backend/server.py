@@ -231,6 +231,7 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
 
     amount_paise = payload.amount * 100
     receipt = f"rcpt_{uuid.uuid4().hex[:20]}"
+    rzp_order = None
     try:
         rzp_order = razorpay_client.order.create({
             "amount": amount_paise,
@@ -242,6 +243,8 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
     except Exception as e:
         logger.exception("Razorpay order creation failed")
         raise HTTPException(status_code=502, detail=f"Failed to create order: {e}")
+    if not rzp_order or not rzp_order.get("id"):
+        raise HTTPException(status_code=502, detail="Razorpay returned empty order")
 
     doc = {
         "order_id": rzp_order["id"],

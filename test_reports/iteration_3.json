@@ -1,0 +1,19 @@
+{
+  "summary": "Verified Critical fixes (payments_create_order defensive init + 3 empty-catch changes) with no regressions. Backend payment endpoints (create-order, verify, webhook) all pass. Frontend routes all render without runtime errors and full Razorpay modal opens end-to-end.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "POST /api/payments/create-order {plan:ai_review, amount:299} -> 200 with order_id starting 'order_' (e.g. order_TA8pJAjfQTy3QS), amount=29900, currency=INR, key_id=rzp_test_T5NQnxhQ1xS2Li, plan=ai_review",
+    "POST /api/payments/verify with valid HMAC (secret from backend/.env) -> 200 {ok:true, status:'paid'}",
+    "POST /api/payments/verify with wrong signature -> 400 {detail:'Signature verification failed'}",
+    "POST /api/payments/webhook with valid HMAC signature -> 200 {ok:true, event:'payment.captured'}",
+    "POST /api/payments/webhook with bad signature -> 400 {detail:'Invalid signature'}",
+    "All 9 routes render without pageerrors/console errors: /, /login, /onboarding, /payment?plan=ai_review, /dashboard, /sample-report, /premium, /loading, /analyzing (only expected 401s on public checkAuth, no console spam, empty-catch fix confirmed non-breaking)",
+    "Razorpay SDK loads on /payment (window.Razorpay defined)",
+    "pay-now-btn present, enabled pre-click, opens real Razorpay modal (iframe URL contains api.razorpay.com/v1/checkout/public), button disables during processing (disabled=true after click)"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}
