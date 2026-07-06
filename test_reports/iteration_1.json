@@ -1,0 +1,28 @@
+{
+  "summary": "First-finish smoke test for DateCoach MVP. All backend endpoints and primary frontend flows verified end-to-end using a MongoDB-injected test session.",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "GET /api/ returns 200 {status:ok}",
+    "GET /api/sample-report returns unlocked=true with full report (score=82, 6 photos, all sections: sub_scores/photos/bio/style/communication/date_plan/roadmap)",
+    "GET /api/report without auth returns 401",
+    "GET /api/auth/me without auth returns 401",
+    "MongoDB test session works: GET /api/auth/me returns user JSON with Bearer token",
+    "GET /api/report initial returns unlocked=false for new user",
+    "POST /api/onboarding returns {ok:true} and persists",
+    "POST /api/payments/create-order returns order_id + amount 299 INR + key",
+    "POST /api/payments/verify marks paid and sets has_report=true",
+    "GET /api/report after payment returns unlocked=true (full payment flow verified)",
+    "Landing page loads with hero-cta-primary, hero-cta-sample, pricing-ai-review (₹299), pricing-premium (₹4,999) testIds",
+    "Clicking 'Start AI Review' while logged out routes to /login",
+    "/login shows auth-google-btn which navigates to https://auth.emergentagent.com/?redirect=<origin>/dashboard (correct redirect encoding)",
+    "/sample-report renders Dashboard with dashboard-score-card and mocked score visible",
+    "/dashboard with session_token cookie loads: dashboard-score-card + all tabs (tab-photos, tab-bio, tab-style, tab-communication, tab-date-plan, tab-roadmap) + copy-bio-btn",
+    "/premium page shows premium-book-btn and ₹4,999 pricing"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Observed benign 401s in console from initial /api/auth/me probe on public pages before auth is established (expected behaviour, non-blocking). Onboarding step-by-step form UI, Payment page ₹299 order + Pay Now button, and Analyzing page 5.5s transition were not exercised via UI script but their backing APIs and route wiring are all confirmed. Recommend the full testing agent cover onboarding form validation and analyzing→dashboard timed navigation."
+}
