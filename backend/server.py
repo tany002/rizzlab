@@ -369,15 +369,80 @@ async def _apply_paid(order_id: str, payment_id: str, event: str, source: str):
     logger.info(f"[webhook] Order {order_id} marked paid via {source} ({event})")
 
 
+# ---- Webhook event handlers (one per event; each returns None) ----
+
+def _extract_payment_entity(entity: Dict[str, Any]) -> Dict[str, Any]:
+    return (entity.get("payment", {}) or {}).get("entity", {}) or {}
+
+
+def _extract_order_entity(entity: Dict[str, Any]) -> Dict[str, Any]:
+    return (entity.get("order", {}) or {}).get("entity", {}) or {}
+
+
+async def _handle_payment_captured(entity: Dict[str, Any], event: str) -> None:
+    pay = _extract_payment_entity(entity)
+    order_id = pay.get("order_id")
+    payment_id = pay.get("id")
+    if order_id and payment_id:
+        await _apply_paid(order_id, payment_id, event, source="webhook")
+
+
+async def _handle_order_paid(entity: Dict[str, Any], event: str) -> None:
+    order_id = _extract_order_entity(entity).get("id")
+    payment_id = _extract_payment_entity(entity).get("id")
+    if order_id and payment_id:
+        await _apply_paid(order_id, payment_id, event, source="webhook")
+
+
+async def _handle_payment_failed(entity: Dict[str, Any], event: str) -> None:
+    pay = _extract_payment_entity(entity)
+    order_id = pay.get("order_id")
+    if not order_id:
+        return
+    await db.payments.update_one(
+        {"order_id": order_id, "status": {"$ne": "paid"}},
+        {"$set": {
+            "status": "failed",
+            "failure_reason": pay.get("error_description") or pay.get("error_code") or "payment.failed",
+            "failed_at": datetime.now(timezone.utc).isoformat(),
+            "last_event": event,
+        }},
+    )
+
+
+WEBHOOK_HANDLERS = {
+    "payment.captured":    _handle_payment_captured,
+    "payment.authorized":  _handle_payment_captured,
+    "order.paid":          _handle_order_paid,
+    "payment.failed":      _handle_payment_failed,
+}
+
+
+def _verify_webhook_signature(raw: bytes, signature: str) -> bool:
+    if not RAZORPAY_WEBHOOK_SECRET:
+        return False
+    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+async def _record_webhook_event(payload: Dict[str, Any]) -> str:
+    event_id = payload.get("id") or f"evt_{uuid.uuid4().hex[:12]}"
+    await db.webhook_events.update_one(
+        {"event_id": event_id},
+        {"$setOnInsert": {
+            "event_id": event_id,
+            "event": payload.get("event", ""),
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "raw": payload,
+        }},
+        upsert=True,
+    )
+    return event_id
+
+
 @api_router.post("/payments/webhook")
 async def payments_webhook(request: Request):
-    """Razorpay server-to-server callback. Verifies HMAC-SHA256 over the raw body.
-
-    IMPORTANT: We use the raw body bytes (not re-serialised JSON) for signature
-    verification, per Razorpay's spec. We ALWAYS return 200 for accepted-then-
-    ignored events (e.g. unknown orders) so Razorpay doesn't infinite-retry;
-    only signature failures return 400.
-    """
+    """Razorpay server-to-server callback. Verifies HMAC-SHA256 over the raw body."""
     raw = await request.body()
     signature = request.headers.get("X-Razorpay-Signature", "")
 
@@ -385,12 +450,7 @@ async def payments_webhook(request: Request):
         logger.error("[webhook] RAZORPAY_WEBHOOK_SECRET not configured")
         raise HTTPException(status_code=503, detail="Webhook not configured")
 
-    expected = hmac.new(
-        RAZORPAY_WEBHOOK_SECRET.encode(),
-        raw,
-        hashlib.sha256,
-    ).hexdigest()
-    if not hmac.compare_digest(expected, signature):
+    if not _verify_webhook_signature(raw, signature):
         logger.warning("[webhook] Invalid signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
@@ -401,51 +461,17 @@ async def payments_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     event = payload.get("event", "")
-    entity = (payload.get("payload", {}) or {})
+    entity = payload.get("payload", {}) or {}
 
-    # Log every event (idempotent record)
-    event_id = payload.get("id") or f"evt_{uuid.uuid4().hex[:12]}"
-    await db.webhook_events.update_one(
-        {"event_id": event_id},
-        {"$setOnInsert": {
-            "event_id": event_id,
-            "event": event,
-            "received_at": datetime.now(timezone.utc).isoformat(),
-            "raw": payload,
-        }},
-        upsert=True,
-    )
+    await _record_webhook_event(payload)
 
-    try:
-        if event in ("payment.captured", "payment.authorized"):
-            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
-            order_id = pay.get("order_id")
-            payment_id = pay.get("id")
-            if order_id and payment_id:
-                await _apply_paid(order_id, payment_id, event, source="webhook")
-        elif event == "order.paid":
-            order = (entity.get("order", {}) or {}).get("entity", {}) or {}
-            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
-            order_id = order.get("id")
-            payment_id = pay.get("id")
-            if order_id and payment_id:
-                await _apply_paid(order_id, payment_id, event, source="webhook")
-        elif event == "payment.failed":
-            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
-            order_id = pay.get("order_id")
-            if order_id:
-                await db.payments.update_one(
-                    {"order_id": order_id, "status": {"$ne": "paid"}},
-                    {"$set": {
-                        "status": "failed",
-                        "failure_reason": pay.get("error_description") or pay.get("error_code") or "payment.failed",
-                        "failed_at": datetime.now(timezone.utc).isoformat(),
-                        "last_event": event,
-                    }},
-                )
-    except Exception:
-        # Never raise back to Razorpay — we already recorded the raw event
-        logger.exception(f"[webhook] Handler failure for event {event}")
+    handler = WEBHOOK_HANDLERS.get(event)
+    if handler:
+        try:
+            await handler(entity, event)
+        except Exception:
+            # Never raise back to Razorpay — we already recorded the raw event
+            logger.exception(f"[webhook] Handler failure for event {event}")
 
     return {"ok": True, "event": event}
 

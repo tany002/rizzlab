@@ -33,7 +33,12 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      // Non-blocking: session may already be invalid on server; still clear client state
+      console.warn("[auth] logout request failed (continuing local logout)", err?.response?.status || err?.message);
+    }
     setUser(null);
     window.location.href = "/";
   };
