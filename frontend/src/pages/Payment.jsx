@@ -1,117 +1,152 @@
-import { motion } from "framer-motion";
+import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CreditCard, Wallet, Smartphone, Lock, ArrowLeft, Sparkles, Check } from "lucide-react";
+import { Lock, ArrowLeft, Sparkles, Check, Loader2, AlertTriangle, RotateCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PAY } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
+const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
+
 const PLANS = {
-  ai_review: { name: "AI Review", price: 299, subtitle: "One-time" },
-  premium: { name: "Premium Coaching", price: 4999, subtitle: "One-time" },
+  ai_review: { name: "AI Rizz Score Report", price: 299, subtitle: "One-time payment", desc: "Personalized AI analysis of your dating profile" },
+  premium: { name: "Premium Coaching", price: 4999, subtitle: "One-time payment", desc: "Everything above + 1:1 expert session" },
 };
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const existing = document.querySelector(`script[src="${RAZORPAY_SDK}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = RAZORPAY_SDK;
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
 
 export default function Payment() {
   const [params] = useSearchParams();
   const plan = params.get("plan") || "ai_review";
   const info = PLANS[plan] || PLANS.ai_review;
-  const [method, setMethod] = useState("upi");
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading] = useState(false);         // creating order / verifying
+  const [sdkReady, setSdkReady] = useState(false);
+  const [failure, setFailure] = useState(null);          // { title, message } or null
+  const [closedMsg, setClosedMsg] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState(null);
   const navigate = useNavigate();
 
-  const pay = async () => {
+  useEffect(() => { loadRazorpayScript().then(setSdkReady); }, []);
+
+  const startCheckout = useCallback(async () => {
+    if (loading) return; // prevent duplicate
     setLoading(true);
+    setClosedMsg(false);
+    setFailure(null);
+
     try {
-      // Try to create order (requires login). If not logged in, still allow demo flow to analyzing screen.
-      try {
-        const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
-        await new Promise(r => setTimeout(r, 900));
-        await api.post("/payments/verify", { order_id: data.order_id });
-      } catch { /* demo flow */ }
-      toast.success("Payment successful");
-      navigate("/analyzing");
-    } finally {
+      const ok = sdkReady || (await loadRazorpayScript());
+      if (!ok || !window.Razorpay) {
+        setFailure({ title: "Payment SDK failed to load", message: "Please check your internet connection and try again." });
+        return;
+      }
+
+      // 1) Create order on backend (never on frontend)
+      const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
+      setLastOrderId(data.order_id);
+
+      // 2) Open Razorpay Standard Checkout
+      const rzp = new window.Razorpay({
+        key: data.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.order_id,
+        name: "RizzLab",
+        description: info.name,
+        image: "/favicon.ico",
+        theme: { color: "#6D5EF7" },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+            setClosedMsg(true);
+            // Fire-and-forget: mark as user_dismissed (non-blocking)
+            api.post("/payments/failure", { order_id: data.order_id, reason: "user_dismissed" }).catch(() => {});
+          },
+        },
+        handler: async (response) => {
+          // 3) Verify signature server-side — DO NOT trust this callback
+          try {
+            const verify = await api.post("/payments/verify", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            if (verify.data?.status === "paid") {
+              toast.success("Payment verified. Generating your report…");
+              // 4) Redirect to /loading
+              navigate("/loading");
+            } else {
+              setFailure({ title: "Verification failed", message: "We couldn't verify this payment. If money was deducted, it will auto-refund in 5-7 days." });
+            }
+          } catch (err) {
+            setFailure({ title: "Verification failed", message: err?.response?.data?.detail || "Signature verification failed. If money was deducted, it will auto-refund." });
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+
+      rzp.on("payment.failed", (resp) => {
+        setLoading(false);
+        api.post("/payments/failure", { order_id: data.order_id, reason: resp?.error?.description || "payment.failed" }).catch(() => {});
+        setFailure({ title: "Payment wasn't completed.", message: resp?.error?.description || "Please try again or use a different payment method." });
+      });
+
+      rzp.open();
+    } catch (err) {
       setLoading(false);
+      setFailure({ title: "Couldn't start payment", message: err?.response?.data?.detail || err?.message || "Please try again." });
     }
-  };
+  }, [loading, sdkReady, plan, info, navigate]);
 
   return (
     <div className="min-h-screen bg-surface">
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-muted hover:text-ink text-sm">
+        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-ink-muted hover:text-ink text-sm" data-testid="pay-back">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
       </div>
-      <div className="max-w-5xl mx-auto px-6 py-8 grid lg:grid-cols-5 gap-8">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-3 bg-white rounded-[24px] border border-zinc-200 shadow-card p-8">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-ink-muted mb-4"><Lock className="w-3.5 h-3.5" /> Secure Checkout · Razorpay</div>
-          <h1 className="font-outfit text-3xl font-semibold text-ink mb-6">Complete your payment.</h1>
 
-          <div className="space-y-3 mb-6">
-            <div className="text-xs uppercase tracking-widest text-ink-muted font-semibold">Payment Method</div>
-            {[
-              { id: "upi", label: "UPI", icon: Smartphone, sub: "GPay, PhonePe, Paytm" },
-              { id: "card", label: "Credit / Debit Card", icon: CreditCard, sub: "Visa, Mastercard, Rupay" },
-              { id: "wallet", label: "Wallets", icon: Wallet, sub: "Paytm, Mobikwik, Freecharge" },
-            ].map(m => {
-              const Icon = m.icon;
-              const active = method === m.id;
-              return (
-                <button key={m.id} onClick={() => setMethod(m.id)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${active ? "border-brand bg-brand-soft" : "border-zinc-200 bg-white hover:border-zinc-300"}`}>
-                  <div className={`w-11 h-11 rounded-xl grid place-items-center ${active ? "bg-brand text-white" : "bg-zinc-100 text-ink"}`}><Icon className="w-5 h-5" /></div>
-                  <div className="flex-1 text-left">
-                    <div className="text-ink font-medium">{m.label}</div>
-                    <div className="text-xs text-ink-muted">{m.sub}</div>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 ${active ? "border-brand" : "border-zinc-300"} grid place-items-center`}>
-                    {active && <div className="w-2.5 h-2.5 rounded-full bg-brand" />}
-                  </div>
-                </button>
-              );
-            })}
+      <div className="max-w-3xl mx-auto px-6 py-8 grid gap-6">
+        {/* Order summary */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-[24px] border border-zinc-200 shadow-card p-8">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-ink-muted mb-4">
+            <Lock className="w-3.5 h-3.5" /> Secure Checkout · Razorpay
           </div>
+          <h1 className="font-outfit text-3xl font-semibold text-ink">Complete your payment</h1>
+          <p className="text-ink-muted mt-1">You'll be redirected to Razorpay's secure checkout. UPI, cards, netbanking & wallets supported.</p>
 
-          {method === "upi" && (
-            <div className="space-y-3">
-              <Label>UPI ID</Label>
-              <Input placeholder="yourname@okhdfc" className="h-12 rounded-xl" />
-            </div>
-          )}
-          {method === "card" && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Label>Card Number</Label><Input placeholder="1234 5678 9012 3456" className="h-12 rounded-xl mt-2" /></div>
-              <div><Label>Expiry</Label><Input placeholder="MM/YY" className="h-12 rounded-xl mt-2" /></div>
-              <div><Label>CVV</Label><Input placeholder="123" className="h-12 rounded-xl mt-2" /></div>
-            </div>
-          )}
-          {method === "wallet" && (
-            <div className="text-sm text-ink-muted p-4 bg-zinc-50 rounded-xl">You'll be redirected to complete payment on your wallet.</div>
-          )}
-
-          <Button data-testid={PAY.payBtn} onClick={pay} disabled={loading}
-            className="mt-8 w-full h-14 rounded-full bg-brand hover:bg-brand-hover text-white text-base shadow-brand hover:-translate-y-0.5 transition-transform">
-            {loading ? "Processing…" : `Pay ₹${info.price.toLocaleString("en-IN")}`}
-          </Button>
-          <p className="text-xs text-ink-muted text-center mt-4">This is a demo checkout. No real charge is made.</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="lg:col-span-2 bg-white rounded-[24px] border border-zinc-200 shadow-card p-8 h-fit">
-          <div className="text-xs uppercase tracking-widest text-ink-muted font-semibold mb-4">Order Summary</div>
-          <div className="flex items-start justify-between pb-5 border-b border-zinc-100">
+          <div className="mt-8 pb-5 border-b border-zinc-100 flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles className="w-4 h-4 text-brand" />
                 <span className="font-outfit font-medium text-ink">{info.name}</span>
               </div>
-              <div className="text-xs text-ink-muted">{info.subtitle}</div>
+              <div className="text-sm text-ink-muted">{info.desc}</div>
+              <div className="text-xs text-ink-muted mt-1">{info.subtitle}</div>
             </div>
-            <div className="font-outfit font-medium text-ink">₹{info.price.toLocaleString("en-IN")}</div>
+            <div className="font-outfit font-medium text-ink text-lg">₹{info.price.toLocaleString("en-IN")}</div>
           </div>
+
           <div className="py-4 space-y-2 text-sm">
             <div className="flex justify-between text-ink-muted"><span>Subtotal</span><span>₹{info.price.toLocaleString("en-IN")}</span></div>
             <div className="flex justify-between text-ink-muted"><span>Taxes</span><span>Included</span></div>
@@ -121,13 +156,67 @@ export default function Payment() {
             <span className="font-outfit text-2xl font-semibold text-ink">₹{info.price.toLocaleString("en-IN")}</span>
           </div>
 
-          <div className="mt-6 space-y-2 text-sm text-ink-muted">
-            {["Instant delivery", "Personalized to your profile", "Actionable — not generic"].map(x => (
-              <div key={x} className="flex items-center gap-2"><Check className="w-4 h-4 text-brand" />{x}</div>
-            ))}
+          <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading}
+            className="mt-8 w-full h-14 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white text-base font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+            {loading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing checkout…</>
+            ) : (
+              <>Pay ₹{info.price.toLocaleString("en-IN")} securely</>
+            )}
+          </Button>
+
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-ink-muted">
+            <Lock className="w-3 h-3" /> 256-bit encryption · Powered by Razorpay
           </div>
         </motion.div>
+
+        {/* Trust points */}
+        <div className="grid sm:grid-cols-3 gap-3">
+          {["Instant delivery", "One-time payment", "Personalized to you"].map((x) => (
+            <div key={x} className="bg-white rounded-2xl border border-zinc-200 p-4 text-sm text-ink-muted flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-500 shrink-0" /> {x}
+            </div>
+          ))}
+        </div>
+
+        {/* Non-intrusive closed-modal notice */}
+        <AnimatePresence>
+          {closedMsg && !failure && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-sm text-amber-800 flex items-center gap-3"
+              data-testid="pay-closed-msg">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              You closed the checkout. Your payment wasn't started — try again when you're ready.
+              <button onClick={() => setClosedMsg(false)} className="ml-auto text-amber-700 hover:text-amber-900"><X className="w-4 h-4" /></button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Failure Modal */}
+      <Dialog open={!!failure} onOpenChange={(o) => !o && setFailure(null)}>
+        <DialogContent data-testid="pay-failure-modal" className="rounded-[20px]">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 grid place-items-center mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <DialogTitle className="font-outfit text-2xl">{failure?.title || "Payment wasn't completed."}</DialogTitle>
+            <DialogDescription className="text-ink-muted">
+              {failure?.message || "Something went wrong. If money was deducted, it will auto-refund in 5-7 days."}
+              {lastOrderId && <div className="mt-2 text-xs font-mono text-ink-muted">Order: {lastOrderId}</div>}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => { setFailure(null); navigate(-1); }} data-testid="pay-goback-btn" className="rounded-full">
+              Go Back
+            </Button>
+            <Button onClick={() => { setFailure(null); startCheckout(); }} data-testid="pay-retry-btn"
+              className="rounded-full bg-brand hover:bg-brand-hover text-white">
+              <RotateCw className="w-4 h-4 mr-2" /> Retry Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

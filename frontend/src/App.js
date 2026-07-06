@@ -26,6 +26,7 @@ function AppRouter() {
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/payment" element={<Payment />} />
       <Route path="/analyzing" element={<Analyzing />} />
+      <Route path="/loading" element={<Analyzing />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/sample-report" element={<SampleReport />} />
       <Route path="/premium" element={<Premium />} />

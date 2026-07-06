@@ -11,10 +11,17 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta
+import razorpay
+import hmac
+import hashlib
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -173,36 +180,157 @@ async def get_onboarding(user: User = Depends(get_current_user)):
     return doc or {}
 
 
-# ------------------ Payments (Mock Razorpay) ------------------
+# ------------------ Payments (Razorpay Standard Checkout) ------------------
+
+class CheckoutOrder(BaseModel):
+    plan: str = "ai_review"
+    amount: int = 299  # rupees; converted to paise for razorpay
+    email: Optional[str] = None
+
+
+class VerifyPayload(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+async def _get_optional_user(request: Request) -> Optional[User]:
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        return None
+
 
 @api_router.post("/payments/create-order")
-async def create_order(payload: PaymentCreate, user: User = Depends(get_current_user)):
-    order_id = f"order_{uuid.uuid4().hex[:16]}"
-    await db.payments.insert_one({
-        "order_id": order_id,
-        "user_id": user.user_id,
+async def payments_create_order(payload: CheckoutOrder, request: Request):
+    """Creates a real Razorpay Order. Server-side only. Amount is in RUPEES; converted to paise."""
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay is not configured")
+    if payload.amount not in (299, 4999):
+        raise HTTPException(status_code=400, detail="Unsupported amount")
+
+    user = await _get_optional_user(request)
+
+    # Idempotency: if user already has an unpaid pending order (created <10 min), return it
+    if user:
+        existing = await db.payments.find_one(
+            {"user_id": user.user_id, "plan": payload.plan, "status": "created"},
+            sort=[("created_at", -1)],
+        )
+        if existing:
+            created_at = datetime.fromisoformat(existing["created_at"])
+            if (datetime.now(timezone.utc) - created_at) < timedelta(minutes=10):
+                return {
+                    "order_id": existing["order_id"],
+                    "amount": existing["amount_paise"],
+                    "currency": existing["currency"],
+                    "key_id": RAZORPAY_KEY_ID,
+                    "plan": payload.plan,
+                }
+
+    amount_paise = payload.amount * 100
+    receipt = f"rcpt_{uuid.uuid4().hex[:20]}"
+    try:
+        rzp_order = razorpay_client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "payment_capture": 1,
+            "notes": {"plan": payload.plan, "user_id": user.user_id if user else "guest"},
+        })
+    except Exception as e:
+        logger.exception("Razorpay order creation failed")
+        raise HTTPException(status_code=502, detail=f"Failed to create order: {e}")
+
+    doc = {
+        "order_id": rzp_order["id"],
+        "receipt": receipt,
+        "user_id": user.user_id if user else None,
+        "email": payload.email or (user.email if user else None),
         "plan": payload.plan,
-        "amount": payload.amount,
+        "amount": payload.amount,        # rupees
+        "amount_paise": amount_paise,    # paise
         "currency": "INR",
         "status": "created",
+        "payment_id": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return {"order_id": order_id, "amount": payload.amount, "currency": "INR", "key": "rzp_test_mock"}
+    }
+    await db.payments.insert_one(doc)
+
+    return {
+        "order_id": rzp_order["id"],
+        "amount": amount_paise,
+        "currency": "INR",
+        "key_id": RAZORPAY_KEY_ID,
+        "plan": payload.plan,
+    }
 
 
 @api_router.post("/payments/verify")
-async def verify_payment(request: Request, user: User = Depends(get_current_user)):
+async def payments_verify(payload: VerifyPayload, request: Request):
+    """Server-side HMAC-SHA256 signature verification per Razorpay docs.
+    signature == HMAC_SHA256(order_id + '|' + payment_id, KEY_SECRET)
+    """
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay is not configured")
+
+    order_doc = await db.payments.find_one({"order_id": payload.razorpay_order_id}, {"_id": 0})
+    if not order_doc:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Idempotency: if already paid, return success (but do not re-fire side effects)
+    if order_doc.get("status") == "paid" and order_doc.get("payment_id") == payload.razorpay_payment_id:
+        return {"ok": True, "status": "paid", "already": True}
+
+    # HMAC verification
+    message = f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}".encode()
+    expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), message, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, payload.razorpay_signature):
+        await db.payments.update_one(
+            {"order_id": payload.razorpay_order_id},
+            {"$set": {"status": "verification_failed", "failed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        raise HTTPException(status_code=400, detail="Signature verification failed")
+
+    await db.payments.update_one(
+        {"order_id": payload.razorpay_order_id},
+        {"$set": {
+            "status": "paid",
+            "payment_id": payload.razorpay_payment_id,
+            "signature": payload.razorpay_signature,
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+
+    # Unlock report for logged-in users
+    if order_doc.get("user_id"):
+        await db.users.update_one(
+            {"user_id": order_doc["user_id"]},
+            {"$set": {"has_report": True}},
+        )
+
+    return {"ok": True, "status": "paid"}
+
+
+@api_router.post("/payments/failure")
+async def payments_failure(request: Request):
     body = await request.json()
     order_id = body.get("order_id")
-    if not order_id:
-        raise HTTPException(status_code=400, detail="order_id required")
-    await db.payments.update_one(
-        {"order_id": order_id, "user_id": user.user_id},
-        {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}},
-    )
-    # unlock report
-    await db.users.update_one({"user_id": user.user_id}, {"$set": {"has_report": True}})
-    return {"ok": True, "status": "paid"}
+    reason = body.get("reason", "unknown")
+    if order_id:
+        await db.payments.update_one(
+            {"order_id": order_id},
+            {"$set": {"status": "failed", "failure_reason": reason, "failed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    return {"ok": True}
+
+
+@api_router.get("/payments/{order_id}")
+async def payments_get(order_id: str):
+    doc = await db.payments.find_one({"order_id": order_id}, {"_id": 0, "signature": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    return doc
 
 
 # ------------------ Report (Mock AI) ------------------
