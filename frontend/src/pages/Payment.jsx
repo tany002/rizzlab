@@ -73,6 +73,13 @@ export default function Payment() {
         description: info.name,
         image: "/favicon.ico",
         theme: { color: "#6D5EF7" },
+        prefill: {
+          // Pre-fill dummy contact so testers skip the mobile-entry step in Razorpay Test Mode.
+          // In production, replace with the authenticated user's real name/email/contact.
+          name: "RizzLab Tester",
+          email: "test@rizzlab.app",
+          contact: "9999999999",
+        },
         modal: {
           ondismiss: () => {
             setLoading(false);
