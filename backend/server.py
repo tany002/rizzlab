@@ -21,6 +21,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
 
 mongo_url = os.environ['MONGO_URL']
@@ -331,6 +332,119 @@ async def payments_get(order_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
     return doc
+
+
+# ------------------ Razorpay Webhook ------------------
+# Configure in Razorpay Dashboard → Settings → Webhooks:
+#   URL:    {PUBLIC_BACKEND_URL}/api/payments/webhook
+#   Events: payment.captured, payment.failed, order.paid
+#   Secret: any random string → paste into backend/.env as RAZORPAY_WEBHOOK_SECRET
+
+async def _apply_paid(order_id: str, payment_id: str, event: str, source: str):
+    """Idempotently mark payment paid + unlock user's report."""
+    order_doc = await db.payments.find_one({"order_id": order_id}, {"_id": 0})
+    if not order_doc:
+        logger.warning(f"[webhook] Unknown order {order_id}; ignoring")
+        return
+    if order_doc.get("status") == "paid":
+        logger.info(f"[webhook] Order {order_id} already paid; skipping side-effects (source={source})")
+        return
+    await db.payments.update_one(
+        {"order_id": order_id},
+        {"$set": {
+            "status": "paid",
+            "payment_id": payment_id,
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "paid_via": source,
+            "last_event": event,
+        }},
+    )
+    if order_doc.get("user_id"):
+        await db.users.update_one(
+            {"user_id": order_doc["user_id"]}, {"$set": {"has_report": True}}
+        )
+    logger.info(f"[webhook] Order {order_id} marked paid via {source} ({event})")
+
+
+@api_router.post("/payments/webhook")
+async def payments_webhook(request: Request):
+    """Razorpay server-to-server callback. Verifies HMAC-SHA256 over the raw body.
+
+    IMPORTANT: We use the raw body bytes (not re-serialised JSON) for signature
+    verification, per Razorpay's spec. We ALWAYS return 200 for accepted-then-
+    ignored events (e.g. unknown orders) so Razorpay doesn't infinite-retry;
+    only signature failures return 400.
+    """
+    raw = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    if not RAZORPAY_WEBHOOK_SECRET:
+        logger.error("[webhook] RAZORPAY_WEBHOOK_SECRET not configured")
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+
+    expected = hmac.new(
+        RAZORPAY_WEBHOOK_SECRET.encode(),
+        raw,
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("[webhook] Invalid signature")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    import json as _json
+    try:
+        payload = _json.loads(raw.decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    event = payload.get("event", "")
+    entity = (payload.get("payload", {}) or {})
+
+    # Log every event (idempotent record)
+    event_id = payload.get("id") or f"evt_{uuid.uuid4().hex[:12]}"
+    await db.webhook_events.update_one(
+        {"event_id": event_id},
+        {"$setOnInsert": {
+            "event_id": event_id,
+            "event": event,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "raw": payload,
+        }},
+        upsert=True,
+    )
+
+    try:
+        if event in ("payment.captured", "payment.authorized"):
+            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
+            order_id = pay.get("order_id")
+            payment_id = pay.get("id")
+            if order_id and payment_id:
+                await _apply_paid(order_id, payment_id, event, source="webhook")
+        elif event == "order.paid":
+            order = (entity.get("order", {}) or {}).get("entity", {}) or {}
+            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
+            order_id = order.get("id")
+            payment_id = pay.get("id")
+            if order_id and payment_id:
+                await _apply_paid(order_id, payment_id, event, source="webhook")
+        elif event == "payment.failed":
+            pay = (entity.get("payment", {}) or {}).get("entity", {}) or {}
+            order_id = pay.get("order_id")
+            if order_id:
+                await db.payments.update_one(
+                    {"order_id": order_id, "status": {"$ne": "paid"}},
+                    {"$set": {
+                        "status": "failed",
+                        "failure_reason": pay.get("error_description") or pay.get("error_code") or "payment.failed",
+                        "failed_at": datetime.now(timezone.utc).isoformat(),
+                        "last_event": event,
+                    }},
+                )
+    except Exception:
+        # Never raise back to Razorpay — we already recorded the raw event
+        logger.exception(f"[webhook] Handler failure for event {event}")
+
+    return {"ok": True, "event": event}
 
 
 # ------------------ Report (Mock AI) ------------------
