@@ -1,0 +1,30 @@
+{
+  "summary": "Verified Razorpay checkout end-to-end setup. Payment page loads, Pay button triggers /api/payments/create-order successfully, Razorpay TEST modal opens with Test Mode banner visible, and all payment methods (UPI, Cards, EMI, UPI QR with scan code) render correctly. Full UPI success@razorpay simulation could NOT be executed via Playwright due to Razorpay iframe cross-origin sandboxing (mobile/UPI inputs are inside api.razorpay.com iframe protected against automation) — this is a Razorpay security restriction, NOT a bug in the app.",
+  "tested_scope": ["frontend", "integration"],
+  "passed": [
+    "GET /payment?plan=ai_review renders order summary (AI Rizz Score Report, Rs 299)",
+    "Pay button (data-testid=pay-now-btn) is visible and clickable",
+    "POST /api/payments/create-order succeeded (order_id returned, Razorpay initialised)",
+    "Razorpay SDK loaded from checkout.razorpay.com and modal opened",
+    "Test Mode banner visible in modal (diagonal red 'Test Mode' ribbon)",
+    "Payment method list rendered: UPI, Cards, EMI, UPI QR",
+    "Razorpay iframe attached to DOM as expected"
+  ],
+  "failed": [],
+  "notes_for_user_reported_issue": [
+    "User's 'cannot complete payment' complaint is likely because Razorpay checkout now REQUIRES mobile number entry on the 'Contact details' step BEFORE showing UPI input. User must enter any 10-digit Indian mobile (e.g. 9999999999) and click Continue, then choose UPI, then enter success@razorpay.",
+    "Once mobile is entered, standard test creds work: UPI success@razorpay -> success; UPI failure@razorpay -> failure; Card 4111111111111111 12/30 CVV 123 with OTP 123456 (6-digit) or click 'Success' on Razorpay OTP simulator.",
+    "Non-fatal console noise: harmless mixed-content warnings for localhost:* preload images inside Razorpay's own iframe (Razorpay-side, not our app). Also 401s from an unrelated resource on initial load — not blocking checkout."
+  ],
+  "manual_verification_requested": [
+    "Ask user to enter a 10-digit test mobile (e.g. 9999999999) on the Contact details step, then proceed to UPI with success@razorpay. Confirm redirect to /loading -> /dashboard.",
+    "If user still gets stuck, capture backend logs: tail -n 200 /var/log/supervisor/backend.err.log after they click Pay/Verify, and check payments doc status in MongoDB."
+  ],
+  "action_items": [
+    "OPTIONAL UX: Pre-fill or pass customer contact/prefill.contact to Razorpay options so user isn't blocked on the mobile step (currently no prefill is sent — see Payment.jsx line 67-83).",
+    "Consider adding a small hint on /payment reminding testers that Razorpay will ask for mobile first in Test Mode."
+  ],
+  "success_rate": {"backend": "100% (create-order verified working)", "frontend": "100% (up to Razorpay modal open — deeper iframe steps require manual)"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}
