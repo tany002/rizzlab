@@ -41,7 +41,7 @@ export default function Navbar() {
           <span className="w-8 h-8 rounded-xl bg-brand text-white grid place-items-center shadow-brand">
             <Heart className="w-4 h-4" fill="white" strokeWidth={0} />
           </span>
-          <span className="font-outfit font-semibold text-lg tracking-tight text-ink">DateCoach</span>
+          <span className="font-outfit font-semibold text-lg tracking-tight text-ink">RizzLab</span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8 text-sm text-ink-muted">

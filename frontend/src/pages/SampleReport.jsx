@@ -31,7 +31,7 @@ export default function SampleReport() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
         className="sticky top-0 z-30 bg-brand text-white px-6 py-3 flex items-center justify-center gap-4 text-sm">
         <Sparkles className="w-4 h-4" />
-        <span>This is a sample report — generated from a real DateCoach analysis.</span>
+        <span>This is a sample report — generated from a real RizzLab analysis.</span>
         <Button onClick={() => navigate("/onboarding")} className="rounded-full bg-white text-brand hover:bg-white/90 h-8 px-4 text-xs">Start Yours →</Button>
       </motion.div>
       <Dashboard demoData={report} />

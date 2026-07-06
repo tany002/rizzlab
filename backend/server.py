@@ -28,7 +28,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI(title="DateCoach API")
+app = FastAPI(title="RizzLab API")
 api_router = APIRouter(prefix="/api")
 
 # ------------------ Models ------------------
@@ -555,7 +555,7 @@ async def sample_report():
 
 @api_router.get("/")
 async def root():
-    return {"message": "DateCoach API", "status": "ok"}
+    return {"message": "RizzLab API", "status": "ok"}
 
 
 app.include_router(api_router)

@@ -88,7 +88,7 @@ export default function Onboarding() {
             <span className="w-7 h-7 rounded-lg bg-brand text-white grid place-items-center">
               <Heart className="w-3.5 h-3.5" fill="white" strokeWidth={0} />
             </span>
-            <span className="font-outfit font-semibold text-ink">DateCoach</span>
+            <span className="font-outfit font-semibold text-ink">RizzLab</span>
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between text-xs text-ink-muted mb-1.5">

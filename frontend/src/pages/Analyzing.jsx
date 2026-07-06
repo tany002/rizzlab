@@ -41,7 +41,7 @@ export default function Analyzing() {
       <div className="relative max-w-3xl mx-auto px-6 pt-24 pb-16">
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/70 mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-brand" /> DateCoach AI · Live analysis
+            <Sparkles className="w-3.5 h-3.5 text-brand" /> RizzLab AI · Live analysis
           </div>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="font-outfit text-4xl lg:text-5xl font-semibold tracking-tight">

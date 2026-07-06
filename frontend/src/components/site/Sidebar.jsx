@@ -24,7 +24,7 @@ export default function Sidebar({ active, onSelect }) {
           <span className="w-8 h-8 rounded-xl bg-brand text-white grid place-items-center shadow-brand">
             <Heart className="w-4 h-4" fill="white" strokeWidth={0} />
           </span>
-          <span className="font-outfit font-semibold text-lg text-ink">DateCoach</span>
+          <span className="font-outfit font-semibold text-lg text-ink">RizzLab</span>
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">

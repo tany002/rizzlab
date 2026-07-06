@@ -9,7 +9,7 @@ export default function Footer() {
             <span className="w-7 h-7 rounded-lg bg-brand text-white grid place-items-center">
               <Heart className="w-3.5 h-3.5" fill="white" strokeWidth={0} />
             </span>
-            <span className="font-outfit font-semibold text-ink">DateCoach</span>
+            <span className="font-outfit font-semibold text-ink">RizzLab</span>
           </div>
           <p className="text-sm text-ink-muted leading-relaxed">Not a dating app. A coach that helps you become worth swiping right on.</p>
         </div>
@@ -40,7 +40,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-zinc-200 py-6 text-center text-xs text-ink-muted">
-        © {new Date().getFullYear()} DateCoach. Built for men who want to level up.
+        © {new Date().getFullYear()} RizzLab. Built for men who want to level up.
       </div>
     </footer>
   );

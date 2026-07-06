@@ -42,7 +42,7 @@ export default function Login() {
             <span className="w-8 h-8 rounded-xl bg-brand text-white grid place-items-center shadow-brand">
               <Heart className="w-4 h-4" fill="white" strokeWidth={0} />
             </span>
-            <span className="font-outfit font-semibold text-lg text-ink">DateCoach</span>
+            <span className="font-outfit font-semibold text-lg text-ink">RizzLab</span>
           </div>
           <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">Welcome back.</h1>
           <p className="text-ink-muted mb-8">Log in to continue your coaching.</p>
