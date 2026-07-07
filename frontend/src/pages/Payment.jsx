@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PAY } from "@/constants/testIds";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
@@ -36,6 +37,7 @@ export default function Payment() {
   const [params] = useSearchParams();
   const plan = params.get("plan") || "ai_review";
   const info = PLANS[plan] || PLANS.ai_review;
+  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(false);         // creating order / verifying
   const [sdkReady, setSdkReady] = useState(false);
@@ -48,6 +50,21 @@ export default function Payment() {
 
   const startCheckout = useCallback(async () => {
     if (loading) return; // prevent duplicate
+
+    if (authLoading) {
+      console.info("[payment] Checkout blocked while auth is still loading");
+      return;
+    }
+
+    if (!user) {
+      const redirectPath = `/payment?plan=${plan}`;
+      sessionStorage.setItem("postLoginRedirect", redirectPath);
+      console.warn("[payment] No authenticated user. Redirecting to login before checkout", { redirectPath, plan });
+      toast.info("Please log in to continue your payment.");
+      navigate("/login");
+      return;
+    }
+
     setLoading(true);
     setClosedMsg(false);
     setFailure(null);
@@ -60,8 +77,10 @@ export default function Payment() {
       }
 
       // 1) Create order on backend (never on frontend)
+      console.info("[payment] Creating order", { plan, amount: info.price, userId: user.user_id });
       const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
       setLastOrderId(data.order_id);
+      console.info("[payment] Order created", { orderId: data.order_id, amount: data.amount, currency: data.currency });
 
       // 2) Open Razorpay Standard Checkout
       const rzp = new window.Razorpay({
@@ -82,6 +101,7 @@ export default function Payment() {
         },
         modal: {
           ondismiss: () => {
+            console.warn("[payment] Razorpay checkout dismissed by user", { orderId: data.order_id });
             setLoading(false);
             setClosedMsg(true);
             // Fire-and-forget: mark as user_dismissed (non-blocking)
@@ -90,20 +110,29 @@ export default function Payment() {
         },
         handler: async (response) => {
           // 3) Verify signature server-side — DO NOT trust this callback
+          console.info("[payment] Razorpay callback received", {
+            orderId: response?.razorpay_order_id,
+            paymentId: response?.razorpay_payment_id,
+          });
           try {
+            console.info("[payment] Sending verify request", { orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id });
             const verify = await api.post("/payments/verify", {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             });
             if (verify.data?.status === "paid") {
+              console.info("[payment] Signature verification passed and payment activated", verify.data);
               toast.success("Payment verified. Generating your report…");
               // 4) Redirect to /loading
+              console.info("[payment] Redirecting to /loading");
               navigate("/loading");
             } else {
+              console.error("[payment] Verify response did not return paid status", verify.data);
               setFailure({ title: "Verification failed", message: "We couldn't verify this payment. If money was deducted, it will auto-refund in 5-7 days." });
             }
           } catch (err) {
+            console.error("[payment] Verify request failed", err?.response?.data || err);
             setFailure({ title: "Verification failed", message: err?.response?.data?.detail || "Signature verification failed. If money was deducted, it will auto-refund." });
           } finally {
             setLoading(false);
@@ -112,17 +141,20 @@ export default function Payment() {
       });
 
       rzp.on("payment.failed", (resp) => {
+        console.error("[payment] Razorpay reported payment.failed", resp);
         setLoading(false);
         api.post("/payments/failure", { order_id: data.order_id, reason: resp?.error?.description || "payment.failed" }).catch(() => {});
         setFailure({ title: "Payment wasn't completed.", message: resp?.error?.description || "Please try again or use a different payment method." });
       });
 
       rzp.open();
+      console.info("[payment] Razorpay checkout opened", { orderId: data.order_id });
     } catch (err) {
+      console.error("[payment] Failed to start checkout", err?.response?.data || err);
       setLoading(false);
       setFailure({ title: "Couldn't start payment", message: err?.response?.data?.detail || err?.message || "Please try again." });
     }
-  }, [loading, sdkReady, plan, info, navigate]);
+  }, [loading, authLoading, sdkReady, plan, info, navigate, user]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -163,10 +195,12 @@ export default function Payment() {
             <span className="font-outfit text-2xl font-semibold text-ink">₹{info.price.toLocaleString("en-IN")}</span>
           </div>
 
-          <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading}
+          <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading || authLoading}
             className="mt-8 w-full h-14 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white text-base font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
             {loading ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing checkout…</>
+            ) : authLoading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking session…</>
             ) : (
               <>Pay ₹{info.price.toLocaleString("en-IN")} securely</>
             )}

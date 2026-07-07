@@ -106,6 +106,26 @@ def _seed_order(order_id, status="created", plan="ai_review"):
     return doc
 
 
+def _seed_user_session(email=None):
+    from datetime import datetime, timezone, timedelta
+    user_id = f"user_TEST_{uuid.uuid4().hex[:10]}"
+    session_token = f"session_TEST_{uuid.uuid4().hex[:16]}"
+    email = email or f"TEST_user_{uuid.uuid4().hex[:8]}@example.com"
+    db.users.insert_one({
+        "user_id": user_id,
+        "email": email,
+        "name": "Test User",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"user_id": user_id, "email": email, "session_token": session_token}
+
+
 # No cross-test cleanup — xdist runs tests in parallel and a shared-email delete
 # would wipe another worker's just-created order. Records use TEST_* markers and
 # unique order_id/event_id per test so leftover data is easily filtered later.
@@ -264,6 +284,39 @@ class TestPaymentsVerify:
         data = r.json()
         assert data.get("ok") is True
         assert data.get("status") == "paid"
+
+    def test_verify_attaches_authenticated_user_and_activates_profile(self):
+        user = _seed_user_session()
+        order_id = f"order_TESTattach_{uuid.uuid4().hex[:8]}"
+        _seed_order(order_id)
+        payment_id = f"pay_attach_{uuid.uuid4().hex[:8]}"
+        msg = f"{order_id}|{payment_id}".encode()
+        sig = hmac.new(KEY_SECRET.encode(), msg, hashlib.sha256).hexdigest()
+
+        session = requests.Session()
+        session.cookies.set("session_token", user["session_token"])
+        r = session.post(
+            f"{API}/payments/verify",
+            json={
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": sig,
+            },
+            timeout=15,
+        )
+        assert r.status_code == 200, r.text
+
+        payment_doc = db.payments.find_one({"order_id": order_id})
+        assert payment_doc["status"] == "paid"
+        assert payment_doc["user_id"] == user["user_id"]
+        assert payment_doc["payment_id"] == payment_id
+        assert payment_doc["verified_via"] == "checkout_callback"
+
+        user_doc = db.users.find_one({"user_id": user["user_id"]})
+        assert user_doc["has_report"] is True
+        assert user_doc["payment_status"] == "active"
+        assert user_doc["subscription_status"] == "active"
+        assert user_doc["active_plan"] == "ai_review"
 
 
 # ---------- Create order live Razorpay ----------

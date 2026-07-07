@@ -202,6 +202,32 @@ async def _get_optional_user(request: Request) -> Optional[User]:
         return None
 
 
+async def _activate_payment_for_user(user_id: Optional[str], plan: Optional[str], payment_id: Optional[str], source: str) -> None:
+    """Idempotently unlock the paid report/subscription flags for a user."""
+    if not user_id:
+        logger.warning("[payments] No user_id available during activation (source=%s, payment_id=%s)", source, payment_id)
+        return
+
+    update = {
+        "has_report": True,
+        "payment_status": "active",
+        "subscription_status": "active",
+        "active_plan": plan,
+        "last_payment_id": payment_id,
+        "last_payment_source": source,
+        "last_payment_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = await db.users.update_one({"user_id": user_id}, {"$set": update})
+    logger.info(
+        "[payments] User activation write complete (user_id=%s, matched=%s, modified=%s, plan=%s, source=%s)",
+        user_id,
+        result.matched_count,
+        result.modified_count,
+        plan,
+        source,
+    )
+
+
 @api_router.post("/payments/create-order")
 async def payments_create_order(payload: CheckoutOrder, request: Request):
     """Creates a real Razorpay Order. Server-side only. Amount is in RUPEES; converted to paise."""
@@ -211,6 +237,13 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
         raise HTTPException(status_code=400, detail="Unsupported amount")
 
     user = await _get_optional_user(request)
+    logger.info(
+        "[payments] Create order requested (plan=%s, amount=%s, user_id=%s, email=%s)",
+        payload.plan,
+        payload.amount,
+        user.user_id if user else None,
+        payload.email or (user.email if user else None),
+    )
 
     # Idempotency: if user already has an unpaid pending order (created <10 min), return it
     if user:
@@ -221,6 +254,12 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
         if existing:
             created_at = datetime.fromisoformat(existing["created_at"])
             if (datetime.now(timezone.utc) - created_at) < timedelta(minutes=10):
+                logger.info(
+                    "[payments] Reusing pending order (order_id=%s, user_id=%s, plan=%s)",
+                    existing["order_id"],
+                    user.user_id,
+                    payload.plan,
+                )
                 return {
                     "order_id": existing["order_id"],
                     "amount": existing["amount_paise"],
@@ -260,6 +299,13 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.payments.insert_one(doc)
+    logger.info(
+        "[payments] Order created and stored (order_id=%s, receipt=%s, user_id=%s, amount_paise=%s)",
+        rzp_order["id"],
+        receipt,
+        doc["user_id"],
+        amount_paise,
+    )
 
     return {
         "order_id": rzp_order["id"],
@@ -278,40 +324,72 @@ async def payments_verify(payload: VerifyPayload, request: Request):
     if not razorpay_client:
         raise HTTPException(status_code=500, detail="Razorpay is not configured")
 
+    current_user = await _get_optional_user(request)
+    logger.info(
+        "[payments] Verify request received (order_id=%s, payment_id=%s, auth_user_id=%s)",
+        payload.razorpay_order_id,
+        payload.razorpay_payment_id,
+        current_user.user_id if current_user else None,
+    )
+
     order_doc = await db.payments.find_one({"order_id": payload.razorpay_order_id}, {"_id": 0})
     if not order_doc:
+        logger.error("[payments] Verify failed: order not found (order_id=%s)", payload.razorpay_order_id)
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Idempotency: if already paid, return success (but do not re-fire side effects)
     if order_doc.get("status") == "paid" and order_doc.get("payment_id") == payload.razorpay_payment_id:
+        logger.info(
+            "[payments] Verify idempotent success (order_id=%s, payment_id=%s)",
+            payload.razorpay_order_id,
+            payload.razorpay_payment_id,
+        )
         return {"ok": True, "status": "paid", "already": True}
 
     # HMAC verification
     message = f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}".encode()
     expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), message, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, payload.razorpay_signature):
+        logger.warning("[payments] Signature verification failed (order_id=%s, payment_id=%s)", payload.razorpay_order_id, payload.razorpay_payment_id)
         await db.payments.update_one(
             {"order_id": payload.razorpay_order_id},
             {"$set": {"status": "verification_failed", "failed_at": datetime.now(timezone.utc).isoformat()}},
         )
         raise HTTPException(status_code=400, detail="Signature verification failed")
+    logger.info("[payments] Signature verification passed (order_id=%s, payment_id=%s)", payload.razorpay_order_id, payload.razorpay_payment_id)
 
-    await db.payments.update_one(
+    resolved_user_id = order_doc.get("user_id") or (current_user.user_id if current_user else None)
+
+    payment_update = {
+        "status": "paid",
+        "payment_id": payload.razorpay_payment_id,
+        "signature": payload.razorpay_signature,
+        "paid_at": datetime.now(timezone.utc).isoformat(),
+        "verified_via": "checkout_callback",
+    }
+    if resolved_user_id and not order_doc.get("user_id"):
+        payment_update["user_id"] = resolved_user_id
+    if current_user and not order_doc.get("email"):
+        payment_update["email"] = current_user.email
+
+    payment_result = await db.payments.update_one(
         {"order_id": payload.razorpay_order_id},
-        {"$set": {
-            "status": "paid",
-            "payment_id": payload.razorpay_payment_id,
-            "signature": payload.razorpay_signature,
-            "paid_at": datetime.now(timezone.utc).isoformat(),
-        }},
+        {"$set": payment_update},
+    )
+    logger.info(
+        "[payments] Payment write success (order_id=%s, matched=%s, modified=%s, user_id=%s)",
+        payload.razorpay_order_id,
+        payment_result.matched_count,
+        payment_result.modified_count,
+        resolved_user_id,
     )
 
-    # Unlock report for logged-in users
-    if order_doc.get("user_id"):
-        await db.users.update_one(
-            {"user_id": order_doc["user_id"]},
-            {"$set": {"has_report": True}},
-        )
+    await _activate_payment_for_user(
+        user_id=resolved_user_id,
+        plan=order_doc.get("plan"),
+        payment_id=payload.razorpay_payment_id,
+        source="checkout_callback",
+    )
 
     return {"ok": True, "status": "paid"}
 
@@ -321,6 +399,7 @@ async def payments_failure(request: Request):
     body = await request.json()
     order_id = body.get("order_id")
     reason = body.get("reason", "unknown")
+    logger.warning("[payments] Failure callback received (order_id=%s, reason=%s)", order_id, reason)
     if order_id:
         await db.payments.update_one(
             {"order_id": order_id},
@@ -362,10 +441,13 @@ async def _apply_paid(order_id: str, payment_id: str, event: str, source: str):
             "last_event": event,
         }},
     )
-    if order_doc.get("user_id"):
-        await db.users.update_one(
-            {"user_id": order_doc["user_id"]}, {"$set": {"has_report": True}}
-        )
+    logger.info("[webhook] Payment DB write success (order_id=%s, payment_id=%s, event=%s)", order_id, payment_id, event)
+    await _activate_payment_for_user(
+        user_id=order_doc.get("user_id"),
+        plan=order_doc.get("plan"),
+        payment_id=payment_id,
+        source=source,
+    )
     logger.info(f"[webhook] Order {order_id} marked paid via {source} ({event})")
 
 

@@ -17,6 +17,7 @@ export default function Analyzing() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.info("[loading] Loading page mounted; preparing redirect to report");
     const total = 5500; // ~5.5s demo
     const start = Date.now();
     const timer = setInterval(() => {
@@ -26,7 +27,10 @@ export default function Analyzing() {
       setStage(Math.min(STAGES.length - 1, Math.floor((p / 100) * STAGES.length)));
       if (p >= 100) {
         clearInterval(timer);
-        setTimeout(() => navigate("/dashboard"), 400);
+        setTimeout(() => {
+          console.info("[loading] Redirecting to /dashboard");
+          navigate("/dashboard");
+        }, 400);
       }
     }, 60);
     return () => clearInterval(timer);

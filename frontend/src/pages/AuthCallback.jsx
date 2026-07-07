@@ -25,9 +25,12 @@ export default function AuthCallback() {
       try {
         const { data } = await api.post("/auth/session", { session_id: sessionId });
         if (data?.user) setUser(data.user);
+        const postLoginRedirect = sessionStorage.getItem("postLoginRedirect") || "/dashboard";
+        sessionStorage.removeItem("postLoginRedirect");
+        console.info("[auth] Session established; redirecting after login", { postLoginRedirect, userId: data?.user?.user_id });
         // clear hash and go to dashboard
         window.history.replaceState({}, "", window.location.pathname);
-        navigate("/dashboard", { state: { user: data?.user } });
+        navigate(postLoginRedirect, { state: { user: data?.user } });
       } catch (e) {
         console.error("Auth exchange failed", e);
         navigate("/login");

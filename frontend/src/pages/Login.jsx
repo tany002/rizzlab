@@ -14,7 +14,12 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) navigate("/dashboard");
+    if (user) {
+      const postLoginRedirect = sessionStorage.getItem("postLoginRedirect") || "/dashboard";
+      sessionStorage.removeItem("postLoginRedirect");
+      console.info("[auth] User already signed in; redirecting", { postLoginRedirect, userId: user.user_id });
+      navigate(postLoginRedirect);
+    }
   }, [user, navigate]);
 
   const handleGoogle = () => {
