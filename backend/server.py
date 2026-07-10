@@ -24,9 +24,15 @@ RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ["MONGO_URL"]
+
+client = AsyncIOMotorClient(
+    mongo_url,
+    serverSelectionTimeoutMS=30000,
+    tls=True
+)
+
+db = client[os.environ["DB_NAME"]]
 
 app = FastAPI(title="RizzLab API")
 api_router = APIRouter(prefix="/api")
