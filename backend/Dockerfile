@@ -16,6 +16,8 @@ RUN apt-get update \
         gcc \
         g++ \
         libjq-dev \
+        ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
