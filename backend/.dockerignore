@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+
+# Secrets and local env
+.env
+.env.*
+
+# Tests and dev tooling (not needed in production image)
+tests/
+pytest.ini
+requirements.txt
+
+# Git and editor
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Docs and misc
+*.md
+Dockerfile
+.dockerignore
