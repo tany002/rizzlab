@@ -82,6 +82,9 @@ export default function Login() {
         await loadGoogleScript();
         if (cancelled || !googleBtnRef.current) return;
 
+        // GIS owns this node's children; clear before (re)render to avoid DOM fights with React.
+        googleBtnRef.current.replaceChildren();
+
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleCredential,
@@ -104,7 +107,11 @@ export default function Login() {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Drop GIS-injected nodes so React unmount does not call removeChild on alien DOM.
+      googleBtnRef.current?.replaceChildren();
+    };
   }, [handleGoogleCredential]);
 
   const handleEmail = (e) => {
@@ -133,11 +140,7 @@ export default function Login() {
           <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">Welcome back.</h1>
           <p className="text-ink-muted mb-8">Log in to continue your coaching.</p>
 
-          <div
-            ref={googleBtnRef}
-            data-testid={AUTH.googleBtn}
-            className="w-full min-h-[48px] flex items-center justify-center"
-          >
+          <div className="w-full min-h-[48px] flex flex-col items-center justify-center gap-2">
             {!googleClientId && (
               <p className="text-sm text-red-600 text-center">Google sign-in is not configured.</p>
             )}
@@ -149,6 +152,12 @@ export default function Login() {
                 <Loader2 className="w-4 h-4 animate-spin" /> Signing you in…
               </div>
             )}
+            {/* GIS mount point must stay empty — renderButton() owns this DOM, not React. */}
+            <div
+              ref={googleBtnRef}
+              data-testid={AUTH.googleBtn}
+              className={`w-full flex items-center justify-center ${!googleClientId || !gisReady || signingIn ? "hidden" : ""}`}
+            />
           </div>
 
           <div className="flex items-center gap-3 my-6">
