@@ -5,7 +5,7 @@ import { Lock, ArrowLeft, Sparkles, Check, Loader2, AlertTriangle, RotateCw, X }
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PAY } from "@/constants/testIds";
-import { api } from "@/lib/api";
+import { api, assertApiConfigured } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -77,7 +77,8 @@ export default function Payment() {
       }
 
       // 1) Create order on backend (never on frontend)
-      console.info("[payment] Creating order", { plan, amount: info.price, userId: user.user_id });
+      const apiBase = assertApiConfigured();
+      console.info("[payment] Creating order", { plan, amount: info.price, userId: user.user_id, apiBase });
       const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
       setLastOrderId(data.order_id);
       console.info("[payment] Order created", { orderId: data.order_id, amount: data.amount, currency: data.currency });
