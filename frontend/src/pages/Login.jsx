@@ -1,37 +1,118 @@
 import { motion } from "framer-motion";
-import { Heart, Chrome, Mail, ArrowLeft } from "lucide-react";
+import { Heart, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AUTH } from "@/constants/testIds";
-import { useAuth } from "@/lib/auth";
+import { useAuth, DEFAULT_POST_LOGIN_REDIRECT } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
+
+const GIS_SCRIPT = "https://accounts.google.com/gsi/client";
+
+function loadGoogleScript() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) return resolve();
+    const existing = document.querySelector(`script[src="${GIS_SCRIPT}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google Identity Services")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = GIS_SCRIPT;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Identity Services"));
+    document.head.appendChild(script);
+  });
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const { user } = useAuth();
+  const [signingIn, setSigningIn] = useState(false);
+  const [gisReady, setGisReady] = useState(false);
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const googleBtnRef = useRef(null);
 
   useEffect(() => {
     if (user) {
-      const postLoginRedirect = sessionStorage.getItem("postLoginRedirect") || "/dashboard";
+      const postLoginRedirect = sessionStorage.getItem("postLoginRedirect") || DEFAULT_POST_LOGIN_REDIRECT;
       sessionStorage.removeItem("postLoginRedirect");
       console.info("[auth] User already signed in; redirecting", { postLoginRedirect, userId: user.user_id });
       navigate(postLoginRedirect);
     }
   }, [user, navigate]);
 
-  const handleGoogle = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/dashboard";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-  };
+  const handleGoogleCredential = useCallback(async (response) => {
+    if (!response?.credential) {
+      toast.error("Google sign-in did not return a credential.");
+      return;
+    }
+    setSigningIn(true);
+    try {
+      const { data } = await api.post("/auth/google", { credential: response.credential });
+      if (data?.user) setUser(data.user);
+      const postLoginRedirect = sessionStorage.getItem("postLoginRedirect") || DEFAULT_POST_LOGIN_REDIRECT;
+      sessionStorage.removeItem("postLoginRedirect");
+      console.info("[auth] Google sign-in succeeded; redirecting", { postLoginRedirect, userId: data?.user?.user_id });
+      navigate(postLoginRedirect);
+    } catch (err) {
+      console.error("[auth] Google sign-in failed", err);
+      toast.error(err?.response?.data?.detail || "Google sign-in failed. Please try again.");
+    } finally {
+      setSigningIn(false);
+    }
+  }, [navigate, setUser]);
+
+  useEffect(() => {
+    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      console.error("[auth] REACT_APP_GOOGLE_CLIENT_ID is not set");
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await loadGoogleScript();
+        if (cancelled || !googleBtnRef.current) return;
+
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredential,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        const width = googleBtnRef.current.offsetWidth || 400;
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          width,
+          text: "continue_with",
+        });
+
+        if (!cancelled) setGisReady(true);
+      } catch (err) {
+        console.error("[auth] Failed to initialize Google sign-in", err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [handleGoogleCredential]);
 
   const handleEmail = (e) => {
     e.preventDefault();
     toast.info("Email login is coming soon. Please continue with Google for now.");
   };
+
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID?.trim();
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -52,10 +133,23 @@ export default function Login() {
           <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">Welcome back.</h1>
           <p className="text-ink-muted mb-8">Log in to continue your coaching.</p>
 
-          <Button data-testid={AUTH.googleBtn} onClick={handleGoogle}
-            className="w-full h-12 rounded-full bg-white text-ink border border-zinc-300 hover:bg-zinc-50 hover:-translate-y-0.5 transition-transform gap-3">
-            <Chrome className="w-4 h-4" /> Continue with Google
-          </Button>
+          <div
+            ref={googleBtnRef}
+            data-testid={AUTH.googleBtn}
+            className="w-full min-h-[48px] flex items-center justify-center"
+          >
+            {!googleClientId && (
+              <p className="text-sm text-red-600 text-center">Google sign-in is not configured.</p>
+            )}
+            {googleClientId && !gisReady && !signingIn && (
+              <p className="text-sm text-ink-muted">Loading Google sign-in…</p>
+            )}
+            {signingIn && (
+              <div className="flex items-center gap-2 text-sm text-ink-muted">
+                <Loader2 className="w-4 h-4 animate-spin" /> Signing you in…
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-zinc-200" />

@@ -33,6 +33,18 @@ function loadRazorpayScript() {
   });
 }
 
+function buildRazorpayPrefill(user, onboardingEmail) {
+  const prefill = {};
+
+  const name = user?.name?.trim();
+  if (name) prefill.name = name;
+
+  const email = user?.email?.trim() || onboardingEmail?.trim();
+  if (email) prefill.email = email;
+
+  return prefill;
+}
+
 export default function Payment() {
   const [params] = useSearchParams();
   const plan = params.get("plan") || "ai_review";
@@ -83,6 +95,16 @@ export default function Payment() {
       setLastOrderId(data.order_id);
       console.info("[payment] Order created", { orderId: data.order_id, amount: data.amount, currency: data.currency });
 
+      let onboardingEmail = null;
+      try {
+        const { data: onboarding } = await api.get("/onboarding");
+        onboardingEmail = onboarding?.profile?.email?.trim() || onboarding?.about?.email?.trim() || null;
+      } catch {
+        // Onboarding is optional; user.email remains the primary source.
+      }
+
+      const prefill = buildRazorpayPrefill(user, onboardingEmail);
+
       // 2) Open Razorpay Standard Checkout
       const rzp = new window.Razorpay({
         key: data.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
@@ -93,13 +115,7 @@ export default function Payment() {
         description: info.name,
         image: "/favicon.ico",
         theme: { color: "#6D5EF7" },
-        prefill: {
-          // Pre-fill dummy contact so testers skip the mobile-entry step in Razorpay Test Mode.
-          // In production, replace with the authenticated user's real name/email/contact.
-          name: "RizzLab Tester",
-          email: "test@rizzlab.app",
-          contact: "9999999999",
-        },
+        prefill,
         modal: {
           ondismiss: () => {
             console.warn("[payment] Razorpay checkout dismissed by user", { orderId: data.order_id });

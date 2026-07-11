@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api } from "./api";
 
+export const DEFAULT_POST_LOGIN_REDIRECT = "/payment?plan=ai_review";
+
 const AuthContext = createContext({ user: null, loading: true, refresh: () => {}, logout: () => {} });
 
 export function AuthProvider({ children }) {
@@ -23,12 +25,6 @@ export function AuthProvider({ children }) {
     }, []);
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes("session_id=")) {
-      setLoading(false);
-      return;
-    }
     checkAuth();
   }, [checkAuth]);
 

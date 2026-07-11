@@ -6,8 +6,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
-import httpx
 from pathlib import Path
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta
@@ -60,7 +61,32 @@ class PaymentCreate(BaseModel):
 
 # ------------------ Auth Helpers ------------------
 
-EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+
+
+class GoogleAuthPayload(BaseModel):
+    credential: str
+
+
+async def _establish_session(user_id: str, response: Response) -> str:
+    session_token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=7 * 24 * 60 * 60,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+    )
+    return session_token
 
 async def get_current_user(request: Request) -> User:
     # cookie first, then Authorization header
@@ -96,27 +122,28 @@ async def get_current_user(request: Request) -> User:
 
 # ------------------ Auth Routes ------------------
 
-@api_router.post("/auth/session")
-async def create_session(request: Request, response: Response):
-    body = await request.json()
-    session_id = body.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
+@api_router.post("/auth/google")
+async def auth_google(payload: GoogleAuthPayload, response: Response):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth is not configured")
 
-    async with httpx.AsyncClient(timeout=15.0) as http:
-        r = await http.get(EMERGENT_AUTH_URL, headers={"X-Session-ID": session_id})
-    if r.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid session_id")
-    data = r.json()
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            payload.credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except ValueError as exc:
+        logger.warning("[auth] Google token verification failed: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid Google credential")
 
-    email = data.get("email")
-    name = data.get("name", "")
-    picture = data.get("picture", "")
-    session_token = data.get("session_token")
-    if not email or not session_token:
-        raise HTTPException(status_code=500, detail="Auth service returned incomplete data")
+    email = idinfo.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account missing email")
 
-    # find or create user
+    name = idinfo.get("name", "")
+    picture = idinfo.get("picture", "")
+
     user_doc = await db.users.find_one({"email": email}, {"_id": 0})
     if user_doc:
         user_id = user_doc["user_id"]
@@ -130,23 +157,7 @@ async def create_session(request: Request, response: Response):
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
 
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    await db.user_sessions.insert_one({
-        "user_id": user_id,
-        "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        max_age=7 * 24 * 60 * 60,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-    )
+    await _establish_session(user_id, response)
 
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if isinstance(user_doc.get("created_at"), str):

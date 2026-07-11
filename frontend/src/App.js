@@ -1,11 +1,10 @@
 import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
-import AuthCallback from "@/pages/AuthCallback";
 import Onboarding from "@/pages/Onboarding";
 import Payment from "@/pages/Payment";
 import Analyzing from "@/pages/Analyzing";
@@ -14,11 +13,6 @@ import SampleReport from "@/pages/SampleReport";
 import Premium from "@/pages/Premium";
 
 function AppRouter() {
-  const location = useLocation();
-  // CRITICAL: sync check for OAuth session_id before ProtectedRoute runs
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
