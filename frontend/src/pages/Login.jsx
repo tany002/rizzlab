@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Heart, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,10 @@ export default function Login() {
   const [gisReady, setGisReady] = useState(false);
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const googleShellRef = useRef(null);
   const googleBtnRef = useRef(null);
+  const credentialHandlerRef = useRef(null);
+  const gisInitializedRef = useRef(false);
 
   useEffect(() => {
     if (user) {
@@ -69,31 +71,35 @@ export default function Login() {
   }, [navigate, setUser]);
 
   useEffect(() => {
+    credentialHandlerRef.current = handleGoogleCredential;
+  }, [handleGoogleCredential]);
+
+  useEffect(() => {
     const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID?.trim();
     if (!clientId) {
       console.error("[auth] REACT_APP_GOOGLE_CLIENT_ID is not set");
       return;
     }
+    if (gisInitializedRef.current) return;
 
     let cancelled = false;
 
     (async () => {
       try {
         await loadGoogleScript();
-        if (cancelled || !googleBtnRef.current) return;
+        if (cancelled || gisInitializedRef.current || !googleBtnRef.current) return;
 
-        // GIS owns this node's children; clear before (re)render to avoid DOM fights with React.
-        googleBtnRef.current.replaceChildren();
+        const mount = googleBtnRef.current;
+        const width = googleShellRef.current?.offsetWidth || 400;
 
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: handleGoogleCredential,
+          callback: (response) => credentialHandlerRef.current?.(response),
           auto_select: false,
           cancel_on_tap_outside: true,
         });
 
-        const width = googleBtnRef.current.offsetWidth || 400;
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
+        window.google.accounts.id.renderButton(mount, {
           type: "standard",
           theme: "outline",
           size: "large",
@@ -101,6 +107,7 @@ export default function Login() {
           text: "continue_with",
         });
 
+        gisInitializedRef.current = true;
         if (!cancelled) setGisReady(true);
       } catch (err) {
         console.error("[auth] Failed to initialize Google sign-in", err);
@@ -109,10 +116,8 @@ export default function Login() {
 
     return () => {
       cancelled = true;
-      // Drop GIS-injected nodes so React unmount does not call removeChild on alien DOM.
-      googleBtnRef.current?.replaceChildren();
     };
-  }, [handleGoogleCredential]);
+  }, []);
 
   const handleEmail = (e) => {
     e.preventDefault();
@@ -129,8 +134,7 @@ export default function Login() {
         </Link>
       </div>
       <div className="flex-1 grid place-items-center px-6 pb-12">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className="w-full max-w-md bg-white rounded-[24px] border border-zinc-200 shadow-card p-8">
+        <div className="w-full max-w-md bg-white rounded-[24px] border border-zinc-200 shadow-card p-8">
           <div className="flex items-center gap-2 mb-8">
             <span className="w-8 h-8 rounded-xl bg-brand text-white grid place-items-center shadow-brand">
               <Heart className="w-4 h-4" fill="white" strokeWidth={0} />
@@ -140,23 +144,27 @@ export default function Login() {
           <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">Welcome back.</h1>
           <p className="text-ink-muted mb-8">Log in to continue your coaching.</p>
 
-          <div className="w-full min-h-[48px] flex flex-col items-center justify-center gap-2">
-            {!googleClientId && (
-              <p className="text-sm text-red-600 text-center">Google sign-in is not configured.</p>
-            )}
-            {googleClientId && !gisReady && !signingIn && (
-              <p className="text-sm text-ink-muted">Loading Google sign-in…</p>
-            )}
-            {signingIn && (
-              <div className="flex items-center gap-2 text-sm text-ink-muted">
-                <Loader2 className="w-4 h-4 animate-spin" /> Signing you in…
+          <div ref={googleShellRef} className="relative w-full min-h-[48px]">
+            {(!googleClientId || !gisReady || signingIn) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+                {!googleClientId && (
+                  <p className="text-sm text-red-600 text-center">Google sign-in is not configured.</p>
+                )}
+                {googleClientId && !gisReady && !signingIn && (
+                  <p className="text-sm text-ink-muted text-center">Loading Google sign-in…</p>
+                )}
+                {signingIn && (
+                  <div className="flex items-center gap-2 text-sm text-ink-muted">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Signing you in…
+                  </div>
+                )}
               </div>
             )}
-            {/* GIS mount point must stay empty — renderButton() owns this DOM, not React. */}
+            {/* GIS owns this node exclusively — no React state may change this element after mount. */}
             <div
               ref={googleBtnRef}
               data-testid={AUTH.googleBtn}
-              className={`w-full flex items-center justify-center ${!googleClientId || !gisReady || signingIn ? "hidden" : ""}`}
+              className="w-full flex items-center justify-center min-h-[48px]"
             />
           </div>
 
@@ -178,7 +186,7 @@ export default function Login() {
           </form>
 
           <p className="text-xs text-ink-muted text-center mt-6">By continuing you agree to our Terms and Privacy Policy.</p>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
