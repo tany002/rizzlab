@@ -1,36 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { initMetaPixel, META_PIXEL_ID, trackPageView } from "@/lib/metaPixel";
 
 /**
- * Mount once inside <BrowserRouter>.
- * - Initializes Meta Pixel on first render
- * - Fires PageView on initial load and every client-side navigation
+ * SPA route-change PageViews using Meta's documented API call:
+ *   fbq('track', 'PageView');
+ *
+ * Initial PageView is sent by the base snippet in public/index.html
+ * (Meta Get Started — leave that call intact).
  */
 export default function MetaPixelTracker() {
   const location = useLocation();
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    initMetaPixel();
-  }, []);
-
-  useEffect(() => {
-    trackPageView();
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    if (typeof window.fbq === "function") {
+      window.fbq("track", "PageView");
+    }
   }, [location.pathname, location.search]);
 
-  if (!META_PIXEL_ID || process.env.REACT_APP_META_PIXEL_DISABLED === "true") {
-    return null;
-  }
-
-  return (
-    <noscript>
-      <img
-        height="1"
-        width="1"
-        style={{ display: "none" }}
-        src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
-        alt=""
-      />
-    </noscript>
-  );
+  return null;
 }
