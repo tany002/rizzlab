@@ -12,6 +12,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ONBOARDING } from "@/constants/testIds";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import {
+  COMPLETE_REGISTRATION_TRACKED_KEY,
+  trackMetaEventOnce,
+} from "@/lib/metaPixel";
 
 const STEPS = ["About You", "Challenges", "Photos", "Profile", "Style", "Communication"];
 
@@ -69,6 +73,13 @@ export default function Onboarding() {
     if (step === STEPS.length - 1) {
       try {
         await api.post("/onboarding", data);
+        const fired = trackMetaEventOnce(COMPLETE_REGISTRATION_TRACKED_KEY, "CompleteRegistration", {
+          content_name: "RizzLab Onboarding",
+          status: true,
+        });
+        if (fired) {
+          console.info("[onboarding] Meta CompleteRegistration event fired");
+        }
       } catch (err) {
         // Non-blocking: user might not be logged in yet; log but let flow continue
         console.warn("[onboarding] save skipped", err?.response?.status || err?.message);

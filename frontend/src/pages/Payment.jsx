@@ -8,6 +8,11 @@ import { PAY } from "@/constants/testIds";
 import { api, assertApiConfigured } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import {
+  INITIATE_CHECKOUT_TRACKED_PREFIX,
+  PURCHASE_PENDING_KEY,
+  trackMetaEventOnce,
+} from "@/lib/metaPixel";
 
 const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -141,14 +146,16 @@ export default function Payment() {
             if (verify.data?.status === "paid") {
               console.info("[payment] Signature verification passed and payment activated", verify.data);
               toast.success("Payment verified. Generating your report…");
+              const paidValue = data.amount / 100;
               sessionStorage.setItem(
-                "rizzlab_purchase_pending",
+                PURCHASE_PENDING_KEY,
                 JSON.stringify({
                   payment_id: response.razorpay_payment_id,
-                  value: info.price,
-                  currency: "INR",
+                  order_id: response.razorpay_order_id,
+                  value: paidValue,
+                  currency: data.currency || "INR",
                   content_name: plan === "premium" ? "Premium Coaching" : "AI Rizz Score",
-                  content_type: "subscription",
+                  content_type: "product",
                 }),
               );
               console.info("[payment] Redirecting to /thank-you");
@@ -172,6 +179,18 @@ export default function Payment() {
         api.post("/payments/failure", { order_id: data.order_id, reason: resp?.error?.description || "payment.failed" }).catch(() => {});
         setFailure({ title: "Payment wasn't completed.", message: resp?.error?.description || "Please try again or use a different payment method." });
       });
+
+      const checkoutParams = {
+        value: data.amount / 100,
+        currency: data.currency || "INR",
+        content_name: info.name,
+        content_type: "product",
+      };
+      const initiateTrackedKey = `${INITIATE_CHECKOUT_TRACKED_PREFIX}${data.order_id}`;
+      const checkoutEventFired = trackMetaEventOnce(initiateTrackedKey, "InitiateCheckout", checkoutParams);
+      if (checkoutEventFired) {
+        console.info("[payment] Meta InitiateCheckout event fired", checkoutParams);
+      }
 
       rzp.open();
       console.info("[payment] Razorpay checkout opened", { orderId: data.order_id });

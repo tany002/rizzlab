@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trackPurchase } from "@/lib/metaPixel";
-
-const PURCHASE_PENDING_KEY = "rizzlab_purchase_pending";
+import {
+  PURCHASE_PENDING_KEY,
+  PURCHASE_TRACKED_PREFIX,
+  purchaseEventId,
+  trackMetaEventOnce,
+} from "@/lib/metaPixel";
 
 const DEFAULT_PURCHASE = {
   value: 299,
   currency: "INR",
   content_name: "AI Rizz Score",
-  content_type: "subscription",
+  content_type: "product",
 };
 
 function readPendingPurchase() {
@@ -32,10 +35,9 @@ export default function ThankYou() {
     const pending = readPendingPurchase();
 
     if (pending?.payment_id) {
-      const trackedKey = `rizzlab_purchase_tracked_${pending.payment_id}`;
+      const trackedKey = `${PURCHASE_TRACKED_PREFIX}${pending.payment_id}`;
       if (!purchaseFiredRef.current && !sessionStorage.getItem(trackedKey)) {
         purchaseFiredRef.current = true;
-        sessionStorage.setItem(trackedKey, "1");
 
         const payload = {
           value: pending.value ?? DEFAULT_PURCHASE.value,
@@ -43,16 +45,19 @@ export default function ThankYou() {
           content_name: pending.content_name ?? DEFAULT_PURCHASE.content_name,
           content_type: pending.content_type ?? DEFAULT_PURCHASE.content_type,
         };
+        const eventId = purchaseEventId(pending.payment_id);
 
-        console.info("[thank-you] Firing Meta Purchase event", payload);
-        trackPurchase(payload);
+        const fired = trackMetaEventOnce(trackedKey, "Purchase", payload, eventId);
+        if (fired) {
+          console.info("[thank-you] Meta Purchase event fired", { ...payload, eventID: eventId });
+        }
       }
       sessionStorage.removeItem(PURCHASE_PENDING_KEY);
       return;
     }
 
     const alreadyTracked = Object.keys(sessionStorage).some((k) =>
-      k.startsWith("rizzlab_purchase_tracked_"),
+      k.startsWith(PURCHASE_TRACKED_PREFIX),
     );
     if (!alreadyTracked) {
       console.warn("[thank-you] No verified purchase in session; redirecting to payment");
