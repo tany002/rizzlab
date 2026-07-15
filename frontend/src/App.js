@@ -3,6 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth";
+import MetaPixelTracker from "@/components/analytics/MetaPixelTracker";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
@@ -36,6 +37,7 @@ function App() {
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
+          <MetaPixelTracker />
           <AppRouter />
           <Toaster position="top-center" richColors />
         </BrowserRouter>
