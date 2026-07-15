@@ -141,9 +141,18 @@ export default function Payment() {
             if (verify.data?.status === "paid") {
               console.info("[payment] Signature verification passed and payment activated", verify.data);
               toast.success("Payment verified. Generating your report…");
-              // 4) Redirect to /loading
-              console.info("[payment] Redirecting to /loading");
-              navigate("/loading");
+              sessionStorage.setItem(
+                "rizzlab_purchase_pending",
+                JSON.stringify({
+                  payment_id: response.razorpay_payment_id,
+                  value: info.price,
+                  currency: "INR",
+                  content_name: plan === "premium" ? "Premium Coaching" : "AI Rizz Score",
+                  content_type: "subscription",
+                }),
+              );
+              console.info("[payment] Redirecting to /thank-you");
+              navigate("/thank-you", { replace: true });
             } else {
               console.error("[payment] Verify response did not return paid status", verify.data);
               setFailure({ title: "Verification failed", message: "We couldn't verify this payment. If money was deducted, it will auto-refund in 5-7 days." });

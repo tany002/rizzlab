@@ -286,6 +286,10 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
                 }
 
     amount_paise = payload.amount * 100
+    if payload.plan == "ai_review" and payload.amount == 299:
+        # TODO: REVERT BEFORE PRODUCTION — temporary test amount (₹2 / 200 paise).
+        # Production must use 29900 paise (₹299): amount_paise = payload.amount * 100
+        amount_paise = 200
     receipt = f"rcpt_{uuid.uuid4().hex[:20]}"
     rzp_order = None
     try:

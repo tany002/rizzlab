@@ -12,6 +12,7 @@ import Analyzing from "@/pages/Analyzing";
 import Dashboard from "@/pages/Dashboard";
 import SampleReport from "@/pages/SampleReport";
 import Premium from "@/pages/Premium";
+import ThankYou from "@/pages/ThankYou";
 
 function AppRouter() {
   return (
@@ -20,6 +21,7 @@ function AppRouter() {
       <Route path="/login" element={<Login />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/payment" element={<Payment />} />
+      <Route path="/thank-you" element={<ThankYou />} />
       <Route path="/analyzing" element={<Analyzing />} />
       <Route path="/loading" element={<Analyzing />} />
       <Route path="/dashboard" element={<Dashboard />} />

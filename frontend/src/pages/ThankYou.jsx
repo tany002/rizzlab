@@ -1,0 +1,95 @@
+import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { CheckCircle2, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { trackPurchase } from "@/lib/metaPixel";
+
+const PURCHASE_PENDING_KEY = "rizzlab_purchase_pending";
+
+const DEFAULT_PURCHASE = {
+  value: 299,
+  currency: "INR",
+  content_name: "AI Rizz Score",
+  content_type: "subscription",
+};
+
+function readPendingPurchase() {
+  try {
+    const raw = sessionStorage.getItem(PURCHASE_PENDING_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export default function ThankYou() {
+  const navigate = useNavigate();
+  const purchaseFiredRef = useRef(false);
+
+  useEffect(() => {
+    const pending = readPendingPurchase();
+
+    if (pending?.payment_id) {
+      const trackedKey = `rizzlab_purchase_tracked_${pending.payment_id}`;
+      if (!purchaseFiredRef.current && !sessionStorage.getItem(trackedKey)) {
+        purchaseFiredRef.current = true;
+        sessionStorage.setItem(trackedKey, "1");
+
+        const payload = {
+          value: pending.value ?? DEFAULT_PURCHASE.value,
+          currency: pending.currency ?? DEFAULT_PURCHASE.currency,
+          content_name: pending.content_name ?? DEFAULT_PURCHASE.content_name,
+          content_type: pending.content_type ?? DEFAULT_PURCHASE.content_type,
+        };
+
+        console.info("[thank-you] Firing Meta Purchase event", payload);
+        trackPurchase(payload);
+      }
+      sessionStorage.removeItem(PURCHASE_PENDING_KEY);
+      return;
+    }
+
+    const alreadyTracked = Object.keys(sessionStorage).some((k) =>
+      k.startsWith("rizzlab_purchase_tracked_"),
+    );
+    if (!alreadyTracked) {
+      console.warn("[thank-you] No verified purchase in session; redirecting to payment");
+      navigate("/payment?plan=ai_review", { replace: true });
+    }
+  }, [navigate]);
+
+  return (
+    <div className="min-h-screen bg-surface flex flex-col items-center justify-center px-6 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md bg-white rounded-[24px] border border-zinc-200 shadow-card p-8 text-center"
+      >
+        <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 grid place-items-center">
+          <CheckCircle2 className="w-9 h-9" />
+        </div>
+
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-soft text-brand text-xs font-medium mb-4">
+          <Sparkles className="w-3.5 h-3.5" /> Payment confirmed
+        </div>
+
+        <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">
+          Payment Successful
+        </h1>
+        <p className="text-ink-muted mb-8">
+          Your AI Rizz Report is being generated
+        </p>
+
+        <Button
+          onClick={() => navigate("/loading")}
+          className="w-full h-12 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)]"
+        >
+          View My Report
+        </Button>
+      </motion.div>
+    </div>
+  );
+}
