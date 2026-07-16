@@ -51,6 +51,19 @@ export default function ThankYou() {
         if (fired) {
           console.info("[thank-you] Meta Purchase event fired", { ...payload, eventID: eventId });
         }
+      } else if (purchaseFiredRef.current) {
+        console.info("[meta-pixel] Purchase skipped", {
+          reason: "purchaseFiredRef already set",
+          payment_id: pending.payment_id,
+          eventID: pending.payment_id,
+        });
+      } else if (sessionStorage.getItem(trackedKey)) {
+        console.info("[meta-pixel] Purchase skipped", {
+          reason: "already tracked (ThankYou guard)",
+          payment_id: pending.payment_id,
+          eventID: pending.payment_id,
+          storageKey: trackedKey,
+        });
       }
       sessionStorage.removeItem(PURCHASE_PENDING_KEY);
       return;
@@ -59,6 +72,10 @@ export default function ThankYou() {
     const alreadyTracked = Object.keys(sessionStorage).some((k) =>
       k.startsWith(PURCHASE_TRACKED_PREFIX),
     );
+    console.info("[meta-pixel] Purchase skipped", {
+      reason: alreadyTracked ? "missing payment (already tracked in session)" : "missing payment",
+      pending,
+    });
     if (!alreadyTracked) {
       console.warn("[thank-you] No verified purchase in session; redirecting to payment");
       navigate("/payment?plan=ai_review", { replace: true });

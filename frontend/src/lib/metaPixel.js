@@ -7,18 +7,67 @@
  */
 
 function fbqTrack(eventName, params, eventId) {
+  const isPurchase = eventName === "Purchase";
   if (typeof window === "undefined" || typeof window.fbq !== "function") {
+    if (isPurchase) {
+      const reason = typeof window === "undefined" ? "window undefined" : "missing fbq";
+      console.info("[meta-pixel] Purchase skipped", {
+        reason,
+        payment_id: eventId,
+        eventID: eventId,
+        params,
+      });
+    }
     return;
   }
   const hasParams = params && Object.keys(params).length > 0;
   const eventData = eventId ? { eventID: eventId } : undefined;
 
   if (eventData) {
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase about to fire", {
+        payment_id: eventId,
+        eventID: eventId,
+        params: hasParams ? params : {},
+      });
+    }
     window.fbq("track", eventName, hasParams ? params : {}, eventData);
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase fbq called", {
+        payment_id: eventId,
+        eventID: eventId,
+      });
+    }
   } else if (hasParams) {
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase about to fire", {
+        payment_id: eventId,
+        eventID: eventId,
+        params,
+      });
+    }
     window.fbq("track", eventName, params);
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase fbq called", {
+        payment_id: eventId,
+        eventID: eventId,
+      });
+    }
   } else {
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase about to fire", {
+        payment_id: eventId,
+        eventID: eventId,
+        params: {},
+      });
+    }
     window.fbq("track", eventName);
+    if (isPurchase) {
+      console.info("[meta-pixel] Purchase fbq called", {
+        payment_id: eventId,
+        eventID: eventId,
+      });
+    }
   }
 }
 
@@ -37,11 +86,31 @@ export function purchaseEventId(paymentId) {
  * @param {string} [eventId] — optional 4th fbq arg `{ eventID }` for CAPI dedup
  */
 export function trackMetaEventOnce(storageKey, eventName, params = {}, eventId) {
-  if (typeof window === "undefined") return false;
+  const isPurchase = eventName === "Purchase";
+  const logPurchaseSkip = (reason, extra = {}) => {
+    if (!isPurchase) return;
+    console.info("[meta-pixel] Purchase skipped", {
+      reason,
+      payment_id: eventId,
+      eventID: eventId,
+      params,
+      storageKey,
+      ...extra,
+    });
+  };
+
+  if (typeof window === "undefined") {
+    logPurchaseSkip("window undefined");
+    return false;
+  }
   try {
-    if (sessionStorage.getItem(storageKey)) return false;
+    if (sessionStorage.getItem(storageKey)) {
+      logPurchaseSkip("already tracked");
+      return false;
+    }
     sessionStorage.setItem(storageKey, "1");
-  } catch {
+  } catch (err) {
+    logPurchaseSkip("sessionStorage write failed", { error: err?.message });
     return false;
   }
   fbqTrack(eventName, params, eventId);
