@@ -106,10 +106,10 @@ export default function ThankYou() {
         </p>
 
         <Button
-          onClick={() => navigate("/loading")}
+          onClick={() => navigate("/complete-details")}
           className="w-full h-12 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)]"
         >
-          View My Report
+          Continue
         </Button>
       </motion.div>
     </div>

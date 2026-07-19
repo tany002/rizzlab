@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import SampleReport from "@/pages/SampleReport";
 import Premium from "@/pages/Premium";
 import ThankYou from "@/pages/ThankYou";
+import CompleteDetails from "@/pages/CompleteDetails";
 
 function AppRouter() {
   return (
@@ -22,6 +23,7 @@ function AppRouter() {
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/payment" element={<Payment />} />
       <Route path="/thank-you" element={<ThankYou />} />
+      <Route path="/complete-details" element={<CompleteDetails />} />
       <Route path="/analyzing" element={<Analyzing />} />
       <Route path="/loading" element={<Analyzing />} />
       <Route path="/dashboard" element={<Dashboard />} />

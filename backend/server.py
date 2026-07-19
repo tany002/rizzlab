@@ -212,6 +212,45 @@ class VerifyPayload(BaseModel):
     razorpay_signature: str
 
 
+class PayerDetailsPayload(BaseModel):
+    payment_id: str
+    order_id: str
+    name: str
+    email: str
+    phone: Optional[str] = None
+
+
+async def _require_paid_payment_for_user(payment_id: str, user: User) -> Dict[str, Any]:
+    """Return a paid payment doc owned by the authenticated user."""
+    doc = await db.payments.find_one({"payment_id": payment_id}, {"_id": 0, "signature": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if doc.get("status") != "paid":
+        raise HTTPException(status_code=400, detail="Payment not completed")
+    owner_id = doc.get("user_id")
+    if owner_id and owner_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this payment")
+    if not owner_id:
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+        if not user_doc or user_doc.get("last_payment_id") != payment_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this payment")
+    return doc
+
+
+def _fetch_razorpay_payer_contact(payment_id: str) -> Dict[str, Optional[str]]:
+    """Read-only Razorpay payment fetch for checkout email/phone (may be empty)."""
+    if not razorpay_client:
+        return {"email": None, "phone": None}
+    try:
+        pay = razorpay_client.payment.fetch(payment_id)
+        email = (pay.get("email") or "").strip() or None
+        phone = (pay.get("contact") or "").strip() or None
+        return {"email": email, "phone": phone}
+    except Exception as e:
+        logger.warning("[payments] Razorpay payment.fetch failed (payment_id=%s): %s", payment_id, e)
+        return {"email": None, "phone": None}
+
+
 async def _get_optional_user(request: Request) -> Optional[User]:
     try:
         return await get_current_user(request)
@@ -422,6 +461,71 @@ async def payments_failure(request: Request):
             {"order_id": order_id},
             {"$set": {"status": "failed", "failure_reason": reason, "failed_at": datetime.now(timezone.utc).isoformat()}},
         )
+    return {"ok": True}
+
+
+@api_router.get("/payments/payer-prefill")
+async def payments_payer_prefill(payment_id: str, user: User = Depends(get_current_user)):
+    """Prefill payer details from saved data, Razorpay payment entity, or auth profile."""
+    doc = await _require_paid_payment_for_user(payment_id, user)
+
+    name = (doc.get("payer_name") or user.name or "").strip() or None
+    email = (doc.get("payer_email") or doc.get("email") or user.email or "").strip() or None
+    phone = (doc.get("payer_phone") or "").strip() or None
+
+    if not doc.get("payer_email") or not doc.get("payer_phone"):
+        rzp = _fetch_razorpay_payer_contact(payment_id)
+        if not email and rzp.get("email"):
+            email = rzp["email"]
+        if not phone and rzp.get("phone"):
+            phone = rzp["phone"]
+
+    return {
+        "payment_id": payment_id,
+        "order_id": doc.get("order_id"),
+        "name": name,
+        "email": email,
+        "phone": phone,
+    }
+
+
+@api_router.post("/payments/payer-details")
+async def payments_save_payer_details(payload: PayerDetailsPayload, user: User = Depends(get_current_user)):
+    """Save payer contact details against a verified paid payment."""
+    name = payload.name.strip()
+    email = payload.email.strip()
+    phone = (payload.phone or "").strip() or None
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    doc = await _require_paid_payment_for_user(payload.payment_id, user)
+    if doc.get("order_id") != payload.order_id:
+        raise HTTPException(status_code=400, detail="Order ID does not match payment")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.payments.update_one(
+        {"payment_id": payload.payment_id},
+        {"$set": {
+            "payer_name": name,
+            "payer_email": email,
+            "payer_phone": phone,
+            "payer_details_at": now,
+        }},
+    )
+
+    user_update: Dict[str, Any] = {"name": name}
+    if phone:
+        user_update["phone"] = phone
+    await db.users.update_one({"user_id": user.user_id}, {"$set": user_update})
+
+    logger.info(
+        "[payments] Payer details saved (payment_id=%s, order_id=%s, user_id=%s)",
+        payload.payment_id,
+        payload.order_id,
+        user.user_id,
+    )
     return {"ok": True}
 
 

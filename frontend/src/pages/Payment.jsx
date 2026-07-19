@@ -13,6 +13,7 @@ import {
   PURCHASE_PENDING_KEY,
   trackMetaEventOnce,
 } from "@/lib/metaPixel";
+import { VERIFIED_PAYMENT_KEY } from "@/lib/paymentSession";
 
 const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -156,6 +157,13 @@ export default function Payment() {
                   currency: data.currency || "INR",
                   content_name: plan === "premium" ? "Premium Coaching" : "AI Rizz Score",
                   content_type: "product",
+                }),
+              );
+              sessionStorage.setItem(
+                VERIFIED_PAYMENT_KEY,
+                JSON.stringify({
+                  payment_id: response.razorpay_payment_id,
+                  order_id: response.razorpay_order_id,
                 }),
               );
               console.info("[payment] Redirecting to /thank-you");

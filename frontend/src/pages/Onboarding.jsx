@@ -84,7 +84,7 @@ export default function Onboarding() {
         // Non-blocking: user might not be logged in yet; log but let flow continue
         console.warn("[onboarding] save skipped", err?.response?.status || err?.message);
       }
-      navigate("/payment?plan=ai_review");
+      navigate("/loading");
       return;
     }
     setStep((s) => s + 1);
@@ -301,7 +301,7 @@ export default function Onboarding() {
           <Button data-testid={step === STEPS.length - 1 ? ONBOARDING.finish : ONBOARDING.continue}
             disabled={!canNext()} onClick={next}
             className="rounded-full bg-brand hover:bg-brand-hover text-white px-8 h-12 shadow-brand hover:-translate-y-0.5 transition-transform disabled:opacity-40">
-            {step === STEPS.length - 1 ? "Continue to Payment" : "Continue"} <ArrowRight className="ml-2 w-4 h-4" />
+            {step === STEPS.length - 1 ? "Generate My Report" : "Continue"} <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
       </div>
