@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LANDING } from "@/constants/testIds";
+import heroBefore from "../assets/hero-before.png";
+import heroAfter from "../assets/hero-after.png";
 
 const CTA = "Find Out Why";
 const CTA_HINT = "Upload your profile · Get your score in ~2 min · Private";
@@ -93,7 +95,7 @@ function HeroTransformation() {
         </div>
         <div className="relative aspect-[3/4]">
           <img
-            src="/images/hero-before.png"
+            src={heroBefore}
             alt="Man alone, anxious, checking his phone with no replies"
             className="absolute inset-0 w-full h-full object-cover object-center saturate-[0.65] brightness-[0.82]"
           />
@@ -118,7 +120,7 @@ function HeroTransformation() {
         </div>
         <div className="relative aspect-[3/4]">
           <img
-            src="/images/hero-after.png"
+            src={heroAfter}
             alt="Same man confident outdoors, relaxed and clear on what to improve"
             className="absolute inset-0 w-full h-full object-cover object-center brightness-[1.05] saturate-[1.08]"
           />
