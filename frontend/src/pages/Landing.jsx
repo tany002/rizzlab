@@ -12,9 +12,9 @@ const CTA_HINT = "Upload your profile · Get your score in ~2 min · Private";
 
 const CTA_BASE =
   "rounded-full bg-brand hover:bg-brand-hover text-white font-semibold group " +
-  "shadow-[0_4px_20px_-4px_rgba(109,94,247,0.55)] " +
-  "hover:shadow-[0_8px_32px_-4px_rgba(109,94,247,0.7)] " +
-  "hover:scale-[1.03] active:scale-[0.98] transition-all duration-150";
+  "shadow-[0_4px_28px_-2px_rgba(109,94,247,0.45)] " +
+  "hover:shadow-[0_16px_48px_-4px_rgba(109,94,247,0.62)] " +
+  "hover:scale-[1.045] active:scale-[0.96] transition-all duration-100";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -41,7 +41,7 @@ function LandingCta({ testId, size = "default", className = "", onClick, showHin
     <div className={`${showHint ? "text-center" : ""} ${fullWidth ? "w-full" : ""} ${className}`}>
       <div className={`relative ${showHint && !fullWidth ? "inline-block" : ""} ${fullWidth ? "w-full" : ""}`}>
         {showHint && (
-          <span className="absolute inset-0 rounded-full bg-brand/35 blur-2xl animate-pulse pointer-events-none" />
+          <span className="absolute inset-0 rounded-full bg-brand/18 blur-3xl animate-pulse pointer-events-none" />
         )}
         <Button
           data-testid={testId}
@@ -49,10 +49,10 @@ function LandingCta({ testId, size = "default", className = "", onClick, showHin
           className={`relative ${CTA_BASE} ${sizeClass} ${fullWidth ? "w-full" : ""}`}
         >
           {CTA}
-          <ArrowRight className={`ml-2 ${iconClass} transition-transform duration-150 group-hover:translate-x-0.5`} />
+          <ArrowRight className={`ml-2 ${iconClass} transition-transform duration-100 group-hover:translate-x-1`} />
         </Button>
       </div>
-      {showHint && <p className="mt-3.5 text-xs tracking-wide text-ink-muted/80">{CTA_HINT}</p>}
+      {showHint && <p className="mt-3.5 text-xs tracking-[0.05em] text-ink-muted/75">{CTA_HINT}</p>}
     </div>
   );
 }
@@ -251,7 +251,7 @@ export default function Landing() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <span className="font-outfit font-bold text-xl tracking-tight" data-testid="nav-logo">
+          <span className="font-outfit font-bold text-xl tracking-[-0.02em]" data-testid="nav-logo">
             RizzLab
           </span>
           <LandingCta testId="nav-cta" size="nav" onClick={goPay} />
@@ -264,14 +264,14 @@ export default function Landing() {
           <div className="absolute -top-32 -right-32 w-[750px] h-[750px] rounded-full bg-gradient-to-br from-brand/20 via-fuchsia-400/12 to-transparent blur-3xl" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-16 sm:pt-24 pb-20 sm:pb-28 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div>
             <motion.h1
               initial="hidden"
               animate="visible"
               custom={0}
               variants={fadeUp}
-              className="font-outfit text-[46px] leading-[1.0] sm:text-[62px] lg:text-[80px] font-bold tracking-[-0.04em] text-ink text-balance"
+              className="font-outfit text-[46px] leading-[1.0] sm:text-[64px] lg:text-[88px] font-bold tracking-[-0.05em] text-ink text-balance"
             >
               Women Swipe Left Because Of This.
             </motion.h1>
@@ -281,13 +281,13 @@ export default function Landing() {
               animate="visible"
               custom={1}
               variants={fadeUp}
-              className="mt-6 sm:mt-7 text-lg sm:text-xl text-ink-muted max-w-[400px] leading-relaxed space-y-1"
+              className="mt-7 sm:mt-8 text-lg sm:text-xl text-ink-muted/90 max-w-[340px] leading-relaxed space-y-1.5"
             >
               <p>Don't guess.</p>
               <p>Find out what's really pushing matches away before she even reads your bio.</p>
             </motion.div>
 
-            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-8 sm:mt-9">
+            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-9 sm:mt-11">
               <CtaBlock testId={LANDING.ctaPrimary} className="text-left sm:text-center lg:text-left" />
             </motion.div>
           </div>
@@ -303,7 +303,7 @@ export default function Landing() {
       </section>
 
       {/* PAIN + DIAGNOSIS — merged */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20 sm:py-28">
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -311,7 +311,7 @@ export default function Landing() {
           transition={{ duration: 0.7 }}
           className="text-center max-w-3xl mx-auto mb-12 sm:mb-14"
         >
-          <h2 className="font-outfit text-3xl sm:text-[42px] lg:text-[54px] font-semibold tracking-[-0.04em] text-ink text-balance leading-[1.06]">
+          <h2 className="font-outfit text-3xl sm:text-[44px] lg:text-[58px] font-semibold tracking-[-0.05em] text-ink text-balance leading-[1.05]">
             You match. They ghost.
             <span className="block mt-2 text-ink-muted">
               Something's off — and no one tells you what.
@@ -327,10 +327,10 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.5, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-white/80 backdrop-blur-sm rounded-[24px] border border-zinc-200/70 p-6 sm:p-7 shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 transition-all duration-200"
+              className="bg-white/90 backdrop-blur-md rounded-[28px] border border-zinc-200/50 p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.05)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-200"
             >
-              <div className="font-outfit font-semibold text-lg sm:text-xl text-ink mb-2 leading-snug">{f.t}</div>
-              <div className="text-sm text-ink-muted leading-relaxed">{f.d}</div>
+              <div className="font-outfit font-semibold text-xl sm:text-[22px] text-ink mb-2.5 leading-snug">{f.t}</div>
+              <div className="text-sm text-ink-muted/85 leading-relaxed">{f.d}</div>
             </motion.div>
           ))}
         </div>
@@ -347,7 +347,7 @@ export default function Landing() {
       </section>
 
       {/* REPORT PREVIEW — tease hard, lock the rest */}
-      <section className="relative py-20 sm:py-28 bg-gradient-to-b from-zinc-50/80 to-white">
+      <section className="relative py-24 sm:py-32 bg-gradient-to-b from-zinc-50/80 to-white">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -356,7 +356,7 @@ export default function Landing() {
             transition={{ duration: 0.7 }}
             className="text-center max-w-2xl mx-auto mb-10 sm:mb-12"
           >
-            <h3 className="font-outfit text-3xl sm:text-[42px] font-semibold tracking-[-0.03em] text-ink leading-[1.06]">
+            <h3 className="font-outfit text-3xl sm:text-[44px] font-semibold tracking-[-0.05em] text-ink leading-[1.05]">
               Here's what you'll find out.
             </h3>
           </motion.div>
@@ -366,14 +366,14 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="relative rounded-[32px] bg-white border border-zinc-200/80 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.12)] overflow-hidden"
+            className="relative rounded-[36px] bg-white border border-zinc-200/60 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.10)] overflow-hidden"
           >
             <div className="p-6 sm:p-10">
               <div className="grid sm:grid-cols-2 gap-5">
                 <div className="bg-ink text-white rounded-2xl p-6 sm:p-7 relative overflow-hidden">
                   <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-brand/40 blur-3xl" />
                   <div className="relative">
-                    <div className="text-[10px] uppercase tracking-widest text-white/60 font-semibold">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-white/60 font-semibold">
                       Dating Score
                     </div>
                     <div className="mt-2 font-outfit text-6xl sm:text-7xl font-semibold">
@@ -382,7 +382,7 @@ export default function Landing() {
                   </div>
                 </div>
                 <div className="rounded-2xl bg-red-50/60 border border-red-100 p-5 sm:p-6 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-red-600 font-semibold mb-2">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-red-600 font-semibold mb-2">
                     <AlertCircle className="w-3.5 h-3.5" /> Biggest Mistake
                   </div>
                   <div className="text-sm sm:text-base text-ink font-medium">
@@ -396,13 +396,13 @@ export default function Landing() {
               <div className="p-6 sm:p-10 pt-0 filter blur-[5px] select-none pointer-events-none">
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div className="bg-zinc-50 rounded-2xl p-6 border border-zinc-100">
-                    <div className="text-[10px] uppercase tracking-widest text-emerald-600 font-semibold mb-3">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-600 font-semibold mb-3">
                       Top Strength
                     </div>
                     <p className="text-sm text-ink">Photo 3 shows genuine warmth — use it higher in your lineup.</p>
                   </div>
                   <div className="bg-zinc-50 rounded-2xl p-6 border border-zinc-100">
-                    <div className="text-[10px] uppercase tracking-widest text-brand font-semibold mb-3">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-brand font-semibold mb-3">
                       Top Recommendation
                     </div>
                     <p className="text-sm text-ink">
@@ -410,7 +410,7 @@ export default function Landing() {
                     </p>
                   </div>
                   <div className="bg-zinc-50 rounded-2xl p-6 border border-zinc-100">
-                    <div className="text-[10px] uppercase tracking-widest text-ink-muted font-semibold mb-3">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-ink-muted font-semibold mb-3">
                       Photo Ranking
                     </div>
                     <div className="space-y-2">
@@ -426,7 +426,7 @@ export default function Landing() {
                     </div>
                   </div>
                   <div className="bg-zinc-50 rounded-2xl p-6 border border-zinc-100">
-                    <div className="text-[10px] uppercase tracking-widest text-ink-muted font-semibold mb-3">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-ink-muted font-semibold mb-3">
                       Bio Rewrite + 4-Week Roadmap
                     </div>
                     <p className="text-sm text-ink">
@@ -451,14 +451,14 @@ export default function Landing() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="relative py-20 sm:py-32">
+      <section className="relative py-24 sm:py-36">
         <div className="max-w-3xl mx-auto px-5 sm:px-8 text-center">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="font-outfit text-[34px] sm:text-5xl lg:text-[64px] font-bold tracking-[-0.04em] text-ink text-balance leading-[1.04]"
+            className="font-outfit text-[36px] sm:text-[52px] lg:text-[68px] font-bold tracking-[-0.05em] text-ink text-balance leading-[1.04]"
           >
             Stop guessing. Find out why.
           </motion.h2>
@@ -467,7 +467,7 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="mt-10 sm:mt-12"
+            className="mt-11 sm:mt-14"
           >
             <CtaBlock testId={LANDING.pricingReview} size="large" />
           </motion.div>
@@ -484,7 +484,7 @@ export default function Landing() {
       </footer>
 
       {/* Mobile sticky CTA */}
-      <div className="lg:hidden fixed bottom-4 inset-x-4 z-40">
+      <div className="lg:hidden fixed bottom-5 inset-x-5 z-40">
         <LandingCta testId="mobile-sticky-cta" onClick={goPay} size="default" fullWidth />
       </div>
     </div>
