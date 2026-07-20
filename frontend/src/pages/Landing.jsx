@@ -11,10 +11,10 @@ const CTA = "Find Out Why";
 const CTA_HINT = "Upload your profile · Get your score in ~2 min · Private";
 
 const CTA_BASE =
-  "rounded-full bg-brand hover:bg-brand-hover text-white font-semibold " +
-  "shadow-[0_0_0_1px_rgba(109,94,247,0.3),0_8px_32px_-4px_rgba(109,94,247,0.55),0_20px_50px_-12px_rgba(109,94,247,0.35)] " +
-  "hover:shadow-[0_0_0_1px_rgba(109,94,247,0.5),0_12px_40px_-4px_rgba(109,94,247,0.7),0_24px_60px_-12px_rgba(109,94,247,0.45)] " +
-  "hover:scale-[1.03] active:scale-[0.98] transition-all duration-200";
+  "rounded-full bg-brand hover:bg-brand-hover text-white font-semibold group " +
+  "shadow-[0_4px_20px_-4px_rgba(109,94,247,0.55)] " +
+  "hover:shadow-[0_8px_32px_-4px_rgba(109,94,247,0.7)] " +
+  "hover:scale-[1.03] active:scale-[0.98] transition-all duration-150";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -41,7 +41,7 @@ function LandingCta({ testId, size = "default", className = "", onClick, showHin
     <div className={`${showHint ? "text-center" : ""} ${fullWidth ? "w-full" : ""} ${className}`}>
       <div className={`relative ${showHint && !fullWidth ? "inline-block" : ""} ${fullWidth ? "w-full" : ""}`}>
         {showHint && (
-          <span className="absolute inset-0 rounded-full bg-brand/50 blur-xl animate-pulse pointer-events-none" />
+          <span className="absolute inset-0 rounded-full bg-brand/35 blur-2xl animate-pulse pointer-events-none" />
         )}
         <Button
           data-testid={testId}
@@ -49,10 +49,10 @@ function LandingCta({ testId, size = "default", className = "", onClick, showHin
           className={`relative ${CTA_BASE} ${sizeClass} ${fullWidth ? "w-full" : ""}`}
         >
           {CTA}
-          <ArrowRight className={`ml-2 ${iconClass}`} />
+          <ArrowRight className={`ml-2 ${iconClass} transition-transform duration-150 group-hover:translate-x-0.5`} />
         </Button>
       </div>
-      {showHint && <p className="mt-3 text-sm text-ink-muted">{CTA_HINT}</p>}
+      {showHint && <p className="mt-3.5 text-xs tracking-wide text-ink-muted/80">{CTA_HINT}</p>}
     </div>
   );
 }
@@ -251,7 +251,7 @@ export default function Landing() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <span className="font-outfit font-semibold text-lg tracking-tight" data-testid="nav-logo">
+          <span className="font-outfit font-bold text-xl tracking-tight" data-testid="nav-logo">
             RizzLab
           </span>
           <LandingCta testId="nav-cta" size="nav" onClick={goPay} />
@@ -261,17 +261,17 @@ export default function Landing() {
       {/* HERO */}
       <section className="relative">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-brand/25 via-fuchsia-400/15 to-transparent blur-3xl" />
+          <div className="absolute -top-32 -right-32 w-[750px] h-[750px] rounded-full bg-gradient-to-br from-brand/20 via-fuchsia-400/12 to-transparent blur-3xl" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-10 sm:pt-16 pb-12 sm:pb-20 grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div>
             <motion.h1
               initial="hidden"
               animate="visible"
               custom={0}
               variants={fadeUp}
-              className="font-outfit text-[42px] leading-[1.02] sm:text-6xl lg:text-[76px] font-bold tracking-[-0.03em] text-ink text-balance"
+              className="font-outfit text-[46px] leading-[1.0] sm:text-[62px] lg:text-[80px] font-bold tracking-[-0.04em] text-ink text-balance"
             >
               Women Swipe Left Because Of This.
             </motion.h1>
@@ -281,13 +281,13 @@ export default function Landing() {
               animate="visible"
               custom={1}
               variants={fadeUp}
-              className="mt-5 sm:mt-6 text-lg sm:text-xl text-ink-muted max-w-lg leading-snug space-y-1"
+              className="mt-6 sm:mt-7 text-lg sm:text-xl text-ink-muted max-w-[400px] leading-relaxed space-y-1"
             >
               <p>Don't guess.</p>
               <p>Find out what's really pushing matches away before she even reads your bio.</p>
             </motion.div>
 
-            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-7">
+            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-8 sm:mt-9">
               <CtaBlock testId={LANDING.ctaPrimary} className="text-left sm:text-center lg:text-left" />
             </motion.div>
           </div>
@@ -303,15 +303,15 @@ export default function Landing() {
       </section>
 
       {/* PAIN + DIAGNOSIS — merged */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20 sm:py-28">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.7 }}
-          className="text-center max-w-3xl mx-auto mb-10 sm:mb-12"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-14"
         >
-          <h2 className="font-outfit text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-0.03em] text-ink text-balance leading-[1.08]">
+          <h2 className="font-outfit text-3xl sm:text-[42px] lg:text-[54px] font-semibold tracking-[-0.04em] text-ink text-balance leading-[1.06]">
             You match. They ghost.
             <span className="block mt-2 text-ink-muted">
               Something's off — and no one tells you what.
@@ -319,7 +319,7 @@ export default function Landing() {
           </h2>
         </motion.div>
 
-        <div className="grid sm:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto">
+        <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
           {problems.map((f, i) => (
             <motion.div
               key={f.t}
@@ -327,9 +327,9 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.5, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-white rounded-[20px] border border-zinc-200 p-5 sm:p-6 shadow-card"
+              className="bg-white/80 backdrop-blur-sm rounded-[24px] border border-zinc-200/70 p-6 sm:p-7 shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 transition-all duration-200"
             >
-              <div className="font-outfit font-medium text-base sm:text-lg text-ink mb-1.5">{f.t}</div>
+              <div className="font-outfit font-semibold text-lg sm:text-xl text-ink mb-2 leading-snug">{f.t}</div>
               <div className="text-sm text-ink-muted leading-relaxed">{f.d}</div>
             </motion.div>
           ))}
@@ -340,23 +340,23 @@ export default function Landing() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="mt-10 sm:mt-12"
+          className="mt-12 sm:mt-14"
         >
           <CtaBlock testId="pain-section-cta" size="compact" />
         </motion.div>
       </section>
 
       {/* REPORT PREVIEW — tease hard, lock the rest */}
-      <section className="relative py-16 sm:py-24 bg-gradient-to-b from-zinc-50 to-white">
+      <section className="relative py-20 sm:py-28 bg-gradient-to-b from-zinc-50/80 to-white">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="text-center max-w-2xl mx-auto mb-8 sm:mb-10"
+            className="text-center max-w-2xl mx-auto mb-10 sm:mb-12"
           >
-            <h3 className="font-outfit text-3xl sm:text-4xl font-semibold tracking-tight text-ink">
+            <h3 className="font-outfit text-3xl sm:text-[42px] font-semibold tracking-[-0.03em] text-ink leading-[1.06]">
               Here's what you'll find out.
             </h3>
           </motion.div>
@@ -366,7 +366,7 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="relative rounded-[28px] bg-white border border-zinc-200 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.15)] overflow-hidden"
+            className="relative rounded-[32px] bg-white border border-zinc-200/80 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.12)] overflow-hidden"
           >
             <div className="p-6 sm:p-10">
               <div className="grid sm:grid-cols-2 gap-5">
@@ -458,7 +458,7 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="font-outfit text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-[-0.03em] text-ink text-balance leading-[1.05]"
+            className="font-outfit text-[34px] sm:text-5xl lg:text-[64px] font-bold tracking-[-0.04em] text-ink text-balance leading-[1.04]"
           >
             Stop guessing. Find out why.
           </motion.h2>
@@ -467,7 +467,7 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="mt-10"
+            className="mt-10 sm:mt-12"
           >
             <CtaBlock testId={LANDING.pricingReview} size="large" />
           </motion.div>
