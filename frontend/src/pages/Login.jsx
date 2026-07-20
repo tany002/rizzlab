@@ -1,6 +1,4 @@
-import { Heart, Mail, ArrowLeft, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Heart, ArrowLeft, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AUTH } from "@/constants/testIds";
@@ -30,7 +28,6 @@ function loadGoogleScript() {
 }
 
 export default function Login() {
-  const [email, setEmail] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [gisReady, setGisReady] = useState(false);
   const { user, setUser } = useAuth();
@@ -119,11 +116,6 @@ export default function Login() {
     };
   }, []);
 
-  const handleEmail = (e) => {
-    e.preventDefault();
-    toast.info("Email login is coming soon. Please continue with Google for now.");
-  };
-
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID?.trim();
 
   return (
@@ -142,7 +134,7 @@ export default function Login() {
             <span className="font-outfit font-semibold text-lg text-ink">RizzLab</span>
           </div>
           <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">Welcome back.</h1>
-          <p className="text-ink-muted mb-8">Log in to continue your coaching.</p>
+          <p className="text-ink-muted mb-8">Continue with Google to pick up where you left off.</p>
 
           <div ref={googleShellRef} className="relative w-full min-h-[48px]">
             {(!googleClientId || !gisReady || signingIn) && (
@@ -160,7 +152,6 @@ export default function Login() {
                 )}
               </div>
             )}
-            {/* GIS owns this node exclusively — no React state may change this element after mount. */}
             <div
               ref={googleBtnRef}
               data-testid={AUTH.googleBtn}
@@ -168,24 +159,7 @@ export default function Login() {
             />
           </div>
 
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-zinc-200" />
-            <span className="text-xs text-ink-muted uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px bg-zinc-200" />
-          </div>
-
-          <form onSubmit={handleEmail} className="space-y-3">
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted" />
-              <Input data-testid={AUTH.emailInput} value={email} onChange={(e) => setEmail(e.target.value)}
-                type="email" placeholder="you@example.com"
-                className="h-12 pl-11 rounded-xl border-zinc-300" />
-            </div>
-            <Button data-testid={AUTH.emailSubmit} type="submit"
-              className="w-full h-12 rounded-full bg-ink hover:bg-zinc-800 text-white">Continue with Email</Button>
-          </form>
-
-          <p className="text-xs text-ink-muted text-center mt-6">By continuing you agree to our Terms and Privacy Policy.</p>
+          <p className="text-xs text-ink-muted text-center mt-8">By continuing you agree to our Terms and Privacy Policy.</p>
         </div>
       </div>
     </div>
