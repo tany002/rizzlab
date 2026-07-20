@@ -71,10 +71,10 @@ function CtaBlock({ testId, size = "default", className = "" }) {
 }
 
 const BEFORE_THOUGHTS = [
-  { text: "Why am I not getting replies?", className: "top-[14%] left-[4%] max-w-[130px]" },
-  { text: "Am I just unattractive?", className: "top-[8%] right-[2%] max-w-[115px]" },
-  { text: "What's wrong with my profile?", className: "bottom-[38%] left-[2%] max-w-[140px]" },
-  { text: "No matches again...", className: "bottom-[18%] right-[4%] max-w-[120px]" },
+  { text: "Why am I not getting replies?", pos: "top-4 left-2 sm:left-3" },
+  { text: "Am I just unattractive?", pos: "top-[28%] right-2 sm:right-3" },
+  { text: "What's wrong with my profile?", pos: "top-[52%] left-2 sm:left-3" },
+  { text: "No matches again...", pos: "bottom-[22%] right-2 sm:right-3" },
 ];
 
 const AFTER_CLARITY = [
@@ -83,58 +83,130 @@ const AFTER_CLARITY = [
   "I know exactly what to fix first",
 ];
 
+/* Stick-figure SVG — simple, readable, no external deps */
+function PersonSilhouette({ mood }) {
+  const isAnxious = mood === "anxious";
+  return (
+    <svg
+      viewBox="0 0 80 120"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+      aria-hidden="true"
+    >
+      {/* head */}
+      <circle cx="40" cy="22" r="12" fill={isAnxious ? "#94a3b8" : "#f59e0b"} opacity={isAnxious ? "0.5" : "0.85"} />
+      {/* body */}
+      <rect x="28" y="36" width="24" height="36" rx="6" fill={isAnxious ? "#64748b" : "#fbbf24"} opacity={isAnxious ? "0.4" : "0.75"} />
+      {/* legs */}
+      {isAnxious ? (
+        /* seated — legs bent down */
+        <>
+          <line x1="34" y1="72" x2="26" y2="100" stroke="#64748b" strokeWidth="5" strokeLinecap="round" opacity="0.4" />
+          <line x1="46" y1="72" x2="54" y2="100" stroke="#64748b" strokeWidth="5" strokeLinecap="round" opacity="0.4" />
+        </>
+      ) : (
+        /* standing — legs straight */
+        <>
+          <line x1="34" y1="72" x2="28" y2="112" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round" opacity="0.75" />
+          <line x1="46" y1="72" x2="52" y2="112" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round" opacity="0.75" />
+        </>
+      )}
+      {/* arms */}
+      {isAnxious ? (
+        /* arms hunched inward holding phone */
+        <>
+          <line x1="28" y1="44" x2="14" y2="60" stroke="#64748b" strokeWidth="5" strokeLinecap="round" opacity="0.4" />
+          <line x1="52" y1="44" x2="66" y2="60" stroke="#64748b" strokeWidth="5" strokeLinecap="round" opacity="0.4" />
+          {/* phone */}
+          <rect x="30" y="62" width="20" height="14" rx="3" fill="#1e293b" opacity="0.5" />
+          <rect x="32" y="64" width="16" height="10" rx="2" fill="#334155" opacity="0.4" />
+        </>
+      ) : (
+        /* arms relaxed, one slightly raised */
+        <>
+          <line x1="28" y1="44" x2="10" y2="56" stroke="#fbbf24" strokeWidth="5" strokeLinecap="round" opacity="0.75" />
+          <line x1="52" y1="44" x2="70" y2="52" stroke="#fbbf24" strokeWidth="5" strokeLinecap="round" opacity="0.75" />
+        </>
+      )}
+      {/* expression */}
+      {isAnxious ? (
+        /* frown */
+        <path d="M34 26 Q40 23 46 26" stroke="#475569" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.7" />
+      ) : (
+        /* smile */
+        <path d="M34 26 Q40 30 46 26" stroke="#92400e" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.8" />
+      )}
+    </svg>
+  );
+}
+
 function HeroTransformation() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-xl lg:max-w-none mx-auto">
-      {/* Before */}
-      <div className="rounded-[20px] sm:rounded-[24px] border border-zinc-300/80 overflow-hidden shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)] bg-slate-900">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-800/90 border-b border-slate-700/60">
+      {/* ── BEFORE ── */}
+      <div className="rounded-[20px] sm:rounded-[24px] border border-slate-700/60 overflow-hidden shadow-[0_20px_50px_-20px_rgba(15,23,42,0.4)] bg-slate-900">
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-800 border-b border-slate-700/60">
           <span className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-slate-400 font-semibold">
             Before RizzLab
           </span>
         </div>
-        <div className="relative aspect-[3/4]">
+
+        {/* illustration area */}
+        <div className="relative aspect-[3/4] overflow-hidden bg-slate-900">
           <img
             src={heroBefore}
-            alt="Man alone, anxious, checking his phone with no replies"
-            className="absolute inset-0 w-full h-full object-cover object-center saturate-[0.65] brightness-[0.82]"
+            alt="Man alone at night, anxiously checking his phone"
+            className="absolute inset-0 w-full h-full object-cover object-top saturate-[0.6] brightness-[0.75]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/30 to-slate-800/20" />
-          {BEFORE_THOUGHTS.map((thought) => (
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-900/20 to-transparent" />
+
+          {/* thought bubbles */}
+          {BEFORE_THOUGHTS.map((t) => (
             <div
-              key={thought.text}
-              className={`absolute ${thought.className} z-10 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl rounded-bl-sm bg-white/95 text-[9px] sm:text-[11px] leading-snug text-slate-700 font-medium shadow-lg border border-slate-200/80`}
+              key={t.text}
+              className={`absolute ${t.pos} max-w-[110px] z-10 px-2 py-1.5 rounded-lg rounded-bl-none bg-white/90 text-[8px] sm:text-[10px] leading-snug text-slate-700 font-medium shadow border border-slate-200/60`}
             >
-              {thought.text}
+              {t.text}
             </div>
           ))}
+
+          {/* dark vignette bottom */}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950/80 to-transparent" />
         </div>
       </div>
 
-      {/* After */}
-      <div className="rounded-[20px] sm:rounded-[24px] border border-amber-200/60 overflow-hidden shadow-[0_20px_50px_-20px_rgba(245,158,11,0.25)] bg-amber-50">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-amber-100/80 border-b border-amber-200/60">
+      {/* ── AFTER ── */}
+      <div className="rounded-[20px] sm:rounded-[24px] border border-amber-200/50 overflow-hidden shadow-[0_20px_50px_-20px_rgba(245,158,11,0.3)] bg-amber-50">
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-amber-100 border-b border-amber-200/60">
           <span className="text-[10px] sm:text-xs uppercase tracking-[0.18em] text-amber-800/70 font-semibold">
             After RizzLab
           </span>
         </div>
-        <div className="relative aspect-[3/4]">
+
+        {/* illustration area */}
+        <div className="relative aspect-[3/4] overflow-hidden bg-amber-50">
           <img
             src={heroAfter}
-            alt="Same man confident outdoors, relaxed and clear on what to improve"
-            className="absolute inset-0 w-full h-full object-cover object-center brightness-[1.05] saturate-[1.08]"
+            alt="Same man confident outdoors, relaxed and self-assured"
+            className="absolute inset-0 w-full h-full object-cover object-top brightness-[1.04] saturate-[1.1]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-amber-950/25 via-transparent to-amber-100/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-amber-950/30 via-transparent to-transparent" />
+
+          {/* clarity cards overlay */}
           <div className="absolute bottom-3 sm:bottom-4 inset-x-2 sm:inset-x-3 z-10">
-            <div className="rounded-2xl bg-white/95 backdrop-blur-sm border border-white/80 shadow-xl p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
+            <div className="rounded-xl bg-white/95 backdrop-blur-sm border border-white/80 shadow-lg p-2 sm:p-2.5 space-y-1.5">
               {AFTER_CLARITY.map((line) => (
-                <div key={line} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="text-[9px] sm:text-[11px] text-ink font-medium leading-snug">{line}</div>
+                <div key={line} className="flex items-start gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="text-[8px] sm:text-[10px] text-ink font-medium leading-snug">{line}</span>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* warm vignette bottom */}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-amber-950/20 to-transparent" />
         </div>
       </div>
     </div>
