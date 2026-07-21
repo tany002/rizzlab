@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PAY } from "@/constants/testIds";
 import { api, assertApiConfigured } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import {
   INITIATE_CHECKOUT_TRACKED_PREFIX,
@@ -39,27 +38,14 @@ function loadRazorpayScript() {
   });
 }
 
-function buildRazorpayPrefill(user, onboardingEmail) {
-  const prefill = {};
-
-  const name = user?.name?.trim();
-  if (name) prefill.name = name;
-
-  const email = user?.email?.trim() || onboardingEmail?.trim();
-  if (email) prefill.email = email;
-
-  return prefill;
-}
-
 export default function Payment() {
   const [params] = useSearchParams();
   const plan = params.get("plan") || "ai_review";
   const info = PLANS[plan] || PLANS.ai_review;
-  const { user, loading: authLoading } = useAuth();
 
-  const [loading, setLoading] = useState(false);         // creating order / verifying
+  const [loading, setLoading] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
-  const [failure, setFailure] = useState(null);          // { title, message } or null
+  const [failure, setFailure] = useState(null);
   const [closedMsg, setClosedMsg] = useState(false);
   const [lastOrderId, setLastOrderId] = useState(null);
   const navigate = useNavigate();
@@ -67,21 +53,7 @@ export default function Payment() {
   useEffect(() => { loadRazorpayScript().then(setSdkReady); }, []);
 
   const startCheckout = useCallback(async () => {
-    if (loading) return; // prevent duplicate
-
-    if (authLoading) {
-      console.info("[payment] Checkout blocked while auth is still loading");
-      return;
-    }
-
-    if (!user) {
-      const redirectPath = `/payment?plan=${plan}`;
-      sessionStorage.setItem("postLoginRedirect", redirectPath);
-      console.warn("[payment] No authenticated user. Redirecting to login before checkout", { redirectPath, plan });
-      toast.info("Please log in to continue your payment.");
-      navigate("/login");
-      return;
-    }
+    if (loading) return;
 
     setLoading(true);
     setClosedMsg(false);
@@ -94,24 +66,12 @@ export default function Payment() {
         return;
       }
 
-      // 1) Create order on backend (never on frontend)
       const apiBase = assertApiConfigured();
-      console.info("[payment] Creating order", { plan, amount: info.price, userId: user.user_id, apiBase });
+      console.info("[payment] Creating order", { plan, amount: info.price, apiBase });
       const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
       setLastOrderId(data.order_id);
       console.info("[payment] Order created", { orderId: data.order_id, amount: data.amount, currency: data.currency });
 
-      let onboardingEmail = null;
-      try {
-        const { data: onboarding } = await api.get("/onboarding");
-        onboardingEmail = onboarding?.profile?.email?.trim() || onboarding?.about?.email?.trim() || null;
-      } catch {
-        // Onboarding is optional; user.email remains the primary source.
-      }
-
-      const prefill = buildRazorpayPrefill(user, onboardingEmail);
-
-      // 2) Open Razorpay Standard Checkout
       const rzp = new window.Razorpay({
         key: data.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
         amount: data.amount,
@@ -121,18 +81,15 @@ export default function Payment() {
         description: info.name,
         image: "/favicon.ico",
         theme: { color: "#6D5EF7" },
-        prefill,
         modal: {
           ondismiss: () => {
             console.warn("[payment] Razorpay checkout dismissed by user", { orderId: data.order_id });
             setLoading(false);
             setClosedMsg(true);
-            // Fire-and-forget: mark as user_dismissed (non-blocking)
             api.post("/payments/failure", { order_id: data.order_id, reason: "user_dismissed" }).catch(() => {});
           },
         },
         handler: async (response) => {
-          // 3) Verify signature server-side — DO NOT trust this callback
           console.info("[payment] Razorpay callback received", {
             orderId: response?.razorpay_order_id,
             paymentId: response?.razorpay_payment_id,
@@ -146,7 +103,7 @@ export default function Payment() {
             });
             if (verify.data?.status === "paid") {
               console.info("[payment] Signature verification passed and payment activated", verify.data);
-              toast.success("Payment verified. Generating your report…");
+              toast.success("Payment verified. Let's build your report…");
               const paidValue = data.amount / 100;
               sessionStorage.setItem(
                 PURCHASE_PENDING_KEY,
@@ -207,7 +164,7 @@ export default function Payment() {
       setLoading(false);
       setFailure({ title: "Couldn't start payment", message: err?.response?.data?.detail || err?.message || "Please try again." });
     }
-  }, [loading, authLoading, sdkReady, plan, info, navigate, user]);
+  }, [loading, sdkReady, plan, info, navigate]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -248,12 +205,10 @@ export default function Payment() {
             <span className="font-outfit text-2xl font-semibold text-ink">₹{info.price.toLocaleString("en-IN")}</span>
           </div>
 
-          <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading || authLoading}
+          <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading}
             className="mt-8 w-full h-14 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white text-base font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
             {loading ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing checkout…</>
-            ) : authLoading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking session…</>
             ) : (
               <>Pay ₹{info.price.toLocaleString("en-IN")} securely</>
             )}

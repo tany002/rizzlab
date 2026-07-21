@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, Camera, PenLine, MessageSquare, Shirt, Target, Check } from "lucide-react";
+import { readVerifiedPayment } from "@/lib/paymentSession";
 
 const STAGES = [
   { icon: Camera, label: "Analyzing 6 photos for composition, lighting, expression" },
@@ -28,8 +29,12 @@ export default function Analyzing() {
       if (p >= 100) {
         clearInterval(timer);
         setTimeout(() => {
-          console.info("[loading] Redirecting to /dashboard");
-          navigate("/dashboard");
+          const verified = readVerifiedPayment();
+          const dest = verified?.payment_id
+            ? `/dashboard?payment_id=${encodeURIComponent(verified.payment_id)}`
+            : "/dashboard";
+          console.info("[loading] Redirecting to", dest);
+          navigate(dest);
         }, 400);
       }
     }, 60);

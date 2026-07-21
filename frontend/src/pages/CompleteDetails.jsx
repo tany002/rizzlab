@@ -40,14 +40,7 @@ export default function CompleteDetails() {
         if (data?.phone) setPhone(data.phone);
       } catch (err) {
         console.error("[complete-details] Failed to load prefill", err?.response?.data || err);
-        if (err?.response?.status === 401) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        if (err?.response?.status === 403 || err?.response?.status === 404) {
-          navigate("/payment?plan=ai_review", { replace: true });
-          return;
-        }
+        // Non-blocking: user can still fill in details manually
         toast.error("Could not load your details. You can still fill them in below.");
       } finally {
         setLoading(false);

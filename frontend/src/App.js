@@ -40,6 +40,11 @@ function App() {
   }, []);
   return (
     <div className="App">
+      <BrowserRouter>
+        <MetaPixelTracker />
+        <AppRouter />
+        <Toaster position="top-center" richColors />
+      </BrowserRouter>
       <AuthProvider>
         <BrowserRouter>
           <MetaPixelTracker />

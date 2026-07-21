@@ -48,6 +48,7 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class OnboardingPayload(BaseModel):
+    payment_id: Optional[str] = None
     about: Dict[str, Any] = {}
     challenges: List[str] = []
     photos: List[str] = []  # data URLs or names
@@ -182,12 +183,39 @@ async def logout(request: Request, response: Response):
 # ------------------ Onboarding ------------------
 
 @api_router.post("/onboarding")
-async def save_onboarding(payload: OnboardingPayload, user: User = Depends(get_current_user)):
-    doc = payload.model_dump()
-    doc["user_id"] = user.user_id
+async def save_onboarding(payload: OnboardingPayload, request: Request):
+    """Save onboarding data. Identified by payment_id (auth-free) or session (legacy)."""
+    user = await _get_optional_user(request)
+    payment_id = payload.payment_id
+
+    if not user and not payment_id:
+        raise HTTPException(status_code=400, detail="payment_id is required")
+
+    doc = payload.model_dump(exclude={"payment_id"})
     doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-    await db.onboarding.update_one(
-        {"user_id": user.user_id}, {"$set": doc}, upsert=True
+
+    if payment_id:
+        doc["payment_id"] = payment_id
+        # Store onboarding inline on the payment record for easy report generation
+        await db.payments.update_one(
+            {"payment_id": payment_id, "status": "paid"},
+            {"$set": {"onboarding": doc, "onboarding_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        # Also upsert in the onboarding collection keyed by payment_id
+        await db.onboarding.update_one(
+            {"payment_id": payment_id}, {"$set": doc}, upsert=True
+        )
+
+    if user:
+        user_doc = {**doc, "user_id": user.user_id}
+        await db.onboarding.update_one(
+            {"user_id": user.user_id}, {"$set": user_doc}, upsert=True
+        )
+
+    logger.info(
+        "[onboarding] Saved (payment_id=%s, user_id=%s)",
+        payment_id,
+        user.user_id if user else None,
     )
     return {"ok": True}
 
@@ -465,15 +493,19 @@ async def payments_failure(request: Request):
 
 
 @api_router.get("/payments/payer-prefill")
-async def payments_payer_prefill(payment_id: str, user: User = Depends(get_current_user)):
-    """Prefill payer details from saved data, Razorpay payment entity, or auth profile."""
-    doc = await _require_paid_payment_for_user(payment_id, user)
+async def payments_payer_prefill(payment_id: str):
+    """Prefill payer details from saved data or Razorpay. No auth required."""
+    doc = await db.payments.find_one({"payment_id": payment_id}, {"_id": 0, "signature": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if doc.get("status") != "paid":
+        raise HTTPException(status_code=400, detail="Payment not completed")
 
-    name = (doc.get("payer_name") or user.name or "").strip() or None
-    email = (doc.get("payer_email") or doc.get("email") or user.email or "").strip() or None
+    name = (doc.get("payer_name") or "").strip() or None
+    email = (doc.get("payer_email") or doc.get("email") or "").strip() or None
     phone = (doc.get("payer_phone") or "").strip() or None
 
-    if not doc.get("payer_email") or not doc.get("payer_phone"):
+    if not email or not phone:
         rzp = _fetch_razorpay_payer_contact(payment_id)
         if not email and rzp.get("email"):
             email = rzp["email"]
@@ -490,8 +522,8 @@ async def payments_payer_prefill(payment_id: str, user: User = Depends(get_curre
 
 
 @api_router.post("/payments/payer-details")
-async def payments_save_payer_details(payload: PayerDetailsPayload, user: User = Depends(get_current_user)):
-    """Save payer contact details against a verified paid payment."""
+async def payments_save_payer_details(payload: PayerDetailsPayload):
+    """Save payer contact details against a verified paid payment. No auth required."""
     name = payload.name.strip()
     email = payload.email.strip()
     phone = (payload.phone or "").strip() or None
@@ -500,7 +532,11 @@ async def payments_save_payer_details(payload: PayerDetailsPayload, user: User =
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
 
-    doc = await _require_paid_payment_for_user(payload.payment_id, user)
+    doc = await db.payments.find_one({"payment_id": payload.payment_id}, {"_id": 0, "signature": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if doc.get("status") != "paid":
+        raise HTTPException(status_code=400, detail="Payment not completed")
     if doc.get("order_id") != payload.order_id:
         raise HTTPException(status_code=400, detail="Order ID does not match payment")
 
@@ -515,16 +551,10 @@ async def payments_save_payer_details(payload: PayerDetailsPayload, user: User =
         }},
     )
 
-    user_update: Dict[str, Any] = {"name": name}
-    if phone:
-        user_update["phone"] = phone
-    await db.users.update_one({"user_id": user.user_id}, {"$set": user_update})
-
     logger.info(
-        "[payments] Payer details saved (payment_id=%s, order_id=%s, user_id=%s)",
+        "[payments] Payer details saved (payment_id=%s, order_id=%s)",
         payload.payment_id,
         payload.order_id,
-        user.user_id,
     )
     return {"ok": True}
 
@@ -769,8 +799,46 @@ def build_mock_report(name: str = "there") -> Dict[str, Any]:
 
 
 @api_router.get("/report")
-async def get_report(user: User = Depends(get_current_user)):
-    # Check if unlocked
+async def get_report(request: Request, payment_id: Optional[str] = None):
+    """
+    Fetch a report.
+    - If payment_id is provided: auth-free, validated against payments collection.
+      One payment = one report. Subsequent calls return the stored report (no regeneration).
+    - If no payment_id: requires session auth (legacy path for existing users).
+    """
+    if payment_id:
+        payment_doc = await db.payments.find_one({"payment_id": payment_id}, {"_id": 0, "signature": 0})
+        if not payment_doc:
+            logger.warning("[report] payment_id not found: %s", payment_id)
+            raise HTTPException(status_code=404, detail="Payment not found")
+        if payment_doc.get("status") != "paid":
+            logger.warning("[report] payment not paid (payment_id=%s, status=%s)", payment_id, payment_doc.get("status"))
+            raise HTTPException(status_code=403, detail="Payment not completed")
+
+        # Duplicate prevention: if already generated, return stored report
+        if payment_doc.get("report_generated"):
+            logger.info("[report] Returning cached report (payment_id=%s)", payment_id)
+            report = payment_doc.get("report_data") or build_mock_report(
+                name=(payment_doc.get("payer_name") or "there").split(" ")[0]
+            )
+            return {"unlocked": True, "report": report}
+
+        # First generation: build, store, mark used
+        name = (payment_doc.get("payer_name") or "there").split(" ")[0]
+        report = build_mock_report(name=name)
+        await db.payments.update_one(
+            {"payment_id": payment_id, "report_generated": {"$ne": True}},
+            {"$set": {
+                "report_generated": True,
+                "report_generated_at": datetime.now(timezone.utc).isoformat(),
+                "report_data": report,
+            }},
+        )
+        logger.info("[report] Report generated and stored (payment_id=%s, name=%s)", payment_id, name)
+        return {"unlocked": True, "report": report}
+
+    # Legacy auth-based path
+    user = await get_current_user(request)
     u = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     unlocked = bool(u and u.get("has_report"))
     report = build_mock_report(name=user.name.split(" ")[0] if user.name else "there")
