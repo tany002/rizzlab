@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Copy, Check, TrendingUp, Camera, PenLine, Shirt, MessageSquare, MapPin, ListChecks, Sparkles, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Sidebar from "@/components/site/Sidebar";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
 import { DASH } from "@/constants/testIds";
 import { toast } from "sonner";
 
@@ -20,7 +19,7 @@ export default function Dashboard({ demoData }) {
   const [report, setReport] = useState(null);
   const [unlocked, setUnlocked] = useState(true);
   const [loading, setLoading] = useState(true);
-  const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,15 +29,37 @@ export default function Dashboard({ demoData }) {
       setLoading(false);
       return;
     }
-    if (authLoading) return;
-    if (!user) { navigate("/login"); return; }
+
+    const paymentId = searchParams.get("payment_id");
+
+    if (!paymentId) {
+      // No payment_id — show sample report
+      (async () => {
+        try {
+          const { data } = await api.get("/sample-report");
+          setReport(data.report);
+          setUnlocked(false);
+        } catch (err) {
+          console.error("[dashboard] sample-report failed", err);
+        } finally {
+          setLoading(false);
+        }
+      })();
+      return;
+    }
+
     (async () => {
       try {
-        const { data } = await api.get("/report");
+        const { data } = await api.get("/report", { params: { payment_id: paymentId } });
         setReport(data.report);
         setUnlocked(data.unlocked);
       } catch (err) {
         console.warn("[dashboard] /report unavailable, falling back to sample", err?.response?.status);
+        if (err?.response?.status === 403 || err?.response?.status === 404) {
+          // Invalid or unpaid payment_id — redirect to payment
+          navigate("/payment?plan=ai_review", { replace: true });
+          return;
+        }
         try {
           const { data } = await api.get("/sample-report");
           setReport(data.report);
@@ -50,7 +71,7 @@ export default function Dashboard({ demoData }) {
         setLoading(false);
       }
     })();
-  }, [demoData, user, authLoading, navigate]);
+  }, [demoData, searchParams, navigate]);
 
   if (loading || !report) {
     return (
