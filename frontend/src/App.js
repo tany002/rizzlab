@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { AuthProvider } from "@/lib/auth";
 import MetaPixelTracker from "@/components/analytics/MetaPixelTracker";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -43,6 +45,14 @@ function App() {
         <AppRouter />
         <Toaster position="top-center" richColors />
       </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <MetaPixelTracker />
+          <AppRouter />
+          <Toaster position="top-center" richColors />
+          <Analytics />
+        </BrowserRouter>
+      </AuthProvider>
     </div>
   );
 }
