@@ -13,6 +13,7 @@ import {
   trackMetaEventOnce,
 } from "@/lib/metaPixel";
 import { VERIFIED_PAYMENT_KEY } from "@/lib/paymentSession";
+import { trackEvent } from "@/lib/analytics";
 
 const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -157,6 +158,7 @@ export default function Payment() {
         console.info("[payment] Meta InitiateCheckout event fired", checkoutParams);
       }
 
+      trackEvent("razorpay_opened");
       rzp.open();
       console.info("[payment] Razorpay checkout opened", { orderId: data.order_id });
     } catch (err) {

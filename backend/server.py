@@ -855,6 +855,76 @@ async def root():
     return {"message": "RizzLab API", "status": "ok"}
 
 
+# ------------------ Analytics ------------------
+
+_ALLOWED_EVENTS = {"landing_view", "find_out_why_click", "razorpay_opened"}
+
+
+class VisitorEventPayload(BaseModel):
+    event: str
+    sessionId: str
+    timestamp: Optional[str] = None
+    page: Optional[str] = None
+    referrer: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    utm_content: Optional[str] = None
+    fbclid: Optional[str] = None
+    userAgent: Optional[str] = None
+
+
+@api_router.post("/analytics/event")
+async def analytics_event(payload: VisitorEventPayload):
+    """Store a visitor funnel event. No auth required."""
+    if payload.event not in _ALLOWED_EVENTS:
+        raise HTTPException(status_code=400, detail="Unknown event type")
+    doc = payload.model_dump()
+    doc["received_at"] = datetime.now(timezone.utc)
+    await db.visitor_events.insert_one(doc)
+    return {"ok": True}
+
+
+@api_router.get("/analytics/funnel")
+async def analytics_funnel():
+    """Return funnel step counts for today (UTC) and all-time."""
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start_iso = today_start.isoformat()
+
+    event_names = list(_ALLOWED_EVENTS)
+    today: Dict[str, int] = {}
+    lifetime: Dict[str, int] = {}
+
+    for name in event_names:
+        lifetime[name] = await db.visitor_events.count_documents({"event": name})
+        today[name] = await db.visitor_events.count_documents(
+            {"event": name, "received_at": {"$gte": today_start}}
+        )
+
+    # Payment successes come from the existing payments collection
+    lifetime["payment_success"] = await db.payments.count_documents({"status": "paid"})
+    today["payment_success"] = await db.payments.count_documents(
+        {"status": "paid", "paid_at": {"$gte": today_start_iso}}
+    )
+
+    return {
+        "today": {
+            "date": today_start.strftime("%Y-%m-%d"),
+            "landing_views": today.get("landing_view", 0),
+            "find_out_why_clicks": today.get("find_out_why_click", 0),
+            "razorpay_opened": today.get("razorpay_opened", 0),
+            "payment_successes": today["payment_success"],
+        },
+        "lifetime": {
+            "landing_views": lifetime.get("landing_view", 0),
+            "find_out_why_clicks": lifetime.get("find_out_why_click", 0),
+            "razorpay_opened": lifetime.get("razorpay_opened", 0),
+            "payment_successes": lifetime["payment_success"],
+        },
+    }
+
+
 app.include_router(api_router)
 
 app.add_middleware(

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LANDING } from "@/constants/testIds";
 import heroBefore from "../assets/hero-before.png";
 import heroAfter from "../assets/hero-after.png";
+import { trackLandingView, trackEvent } from "@/lib/analytics";
 
 const CTA = "Find Out Why";
 const CTA_HINT = "Upload your profile · Get your score in ~2 min · Private";
@@ -64,7 +65,10 @@ function CtaBlock({ testId, size = "default", className = "" }) {
       testId={testId}
       size={size}
       className={className}
-      onClick={() => navigate("/payment?plan=ai_review")}
+      onClick={() => {
+        trackEvent("find_out_why_click");
+        navigate("/payment?plan=ai_review");
+      }}
       showHint
     />
   );
@@ -216,7 +220,14 @@ function HeroTransformation() {
 export default function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const goPay = () => navigate("/payment?plan=ai_review");
+  const goPay = () => {
+    trackEvent("find_out_why_click");
+    navigate("/payment?plan=ai_review");
+  };
+
+  useEffect(() => {
+    trackLandingView();
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
