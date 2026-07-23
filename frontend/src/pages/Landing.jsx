@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Lock, AlertCircle, CheckCircle2, User } from "lucide-react";
+import { ArrowRight, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LANDING } from "@/constants/testIds";
 import heroBefore from "../assets/hero-before.png";
@@ -73,21 +73,40 @@ function RizzLabIcon({ className = "" }) {
 
 function SocialProofBanner() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-zinc-50 border border-zinc-200/80 shadow-sm mb-6 sm:mb-7"
-    >
-      <span className="w-[22px] h-[22px] rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
-        <User className="w-3 h-3 text-zinc-500" strokeWidth={1.8} />
-      </span>
-      <span className="text-sm text-[#222] leading-none">
-        My coworker got{" "}
-        <span className="font-bold bg-gradient-to-r from-brand to-[#8B5CF6] bg-clip-text text-transparent">20 matches</span>. I got{" "}
-        <span className="font-bold bg-gradient-to-r from-brand to-[#8B5CF6] bg-clip-text text-transparent">2</span>.
-      </span>
-    </motion.div>
+    <div className="inline-flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-br from-pink-50/90 to-violet-50/80 border border-violet-200/60 shadow-[0_2px_18px_-4px_rgba(139,92,246,0.18)] mb-6 sm:mb-7">
+      {/* Gradient user icon */}
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="shrink-0"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="spb-icon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#F472B6" />
+            <stop offset="100%" stopColor="#7C3AED" />
+          </linearGradient>
+        </defs>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="url(#spb-icon-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="7" r="4" stroke="url(#spb-icon-grad)" strokeWidth="2" />
+      </svg>
+
+      <div className="flex flex-col gap-[3px]">
+        <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug">
+          The Gap Between{" "}
+          <span className="font-bold bg-gradient-to-r from-[#F472B6] to-[#7C3AED] bg-clip-text text-transparent">2 Matches</span>
+          {" "}&amp;{" "}
+          <span className="font-bold bg-gradient-to-r from-[#F472B6] to-[#7C3AED] bg-clip-text text-transparent">20 Matches</span>.
+        </p>
+        <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug">
+          Most Men Never{" "}
+          <span className="font-bold bg-gradient-to-r from-[#6D5EF7] to-[#8B5CF6] bg-clip-text text-transparent">Discover Why</span>.
+        </p>
+      </div>
+    </div>
   );
 }
 
