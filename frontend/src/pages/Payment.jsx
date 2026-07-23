@@ -13,12 +13,20 @@ import {
   trackMetaEventOnce,
 } from "@/lib/metaPixel";
 import { VERIFIED_PAYMENT_KEY } from "@/lib/paymentSession";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackPaymentStarted, trackPaymentSuccess } from "@/lib/analytics";
 
 const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
+const PRICING = {
+  regularPrice: 499,
+  salePrice: 249,
+  discountPercent: 50,
+  discountAmount: 250,
+  offerName: "Weekend Offer",
+};
+
 const PLANS = {
-  ai_review: { name: "AI Rizz Score Report", price: 299, subtitle: "One-time payment", desc: "Personalized AI analysis of your dating profile" },
+  ai_review: { name: "AI Rizz Score Report", price: PRICING.salePrice, subtitle: "One-time payment", desc: "Personalized AI analysis of your dating profile" },
   premium: { name: "Premium Coaching", price: 4999, subtitle: "One-time payment", desc: "Everything above + 1:1 expert session" },
 };
 
@@ -68,6 +76,7 @@ export default function Payment() {
       }
 
       const apiBase = assertApiConfigured();
+      trackPaymentStarted();
       console.info("[payment] Creating order", { plan, amount: info.price, apiBase });
       const { data } = await api.post("/payments/create-order", { plan, amount: info.price });
       setLastOrderId(data.order_id);
@@ -105,6 +114,9 @@ export default function Payment() {
             if (verify.data?.status === "paid") {
               console.info("[payment] Signature verification passed and payment activated", verify.data);
               toast.success("Payment verified. Let's build your report…");
+              if (plan === "ai_review") {
+                trackPaymentSuccess(PRICING.regularPrice, PRICING.salePrice);
+              }
               const paidValue = data.amount / 100;
               sessionStorage.setItem(
                 PURCHASE_PENDING_KEY,
@@ -207,8 +219,33 @@ export default function Payment() {
             <span className="font-outfit text-2xl font-semibold text-ink">₹{info.price.toLocaleString("en-IN")}</span>
           </div>
 
+          {plan === "ai_review" && (
+            <div className="mt-6 rounded-2xl bg-orange-50 border border-orange-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-orange-600">🔥 {PRICING.offerName}</span>
+                <span className="text-xs font-semibold text-orange-500 bg-orange-100 px-2 py-0.5 rounded-full">
+                  {PRICING.discountPercent}% OFF
+                </span>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Regular Price</span>
+                  <span>₹{PRICING.regularPrice.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between text-emerald-600 font-medium">
+                  <span>Discount</span>
+                  <span>−₹{PRICING.discountAmount.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between font-bold text-ink text-base pt-2 border-t border-orange-200 mt-1">
+                  <span>Today You Pay</span>
+                  <span>₹{PRICING.salePrice.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Button data-testid={PAY.payBtn} onClick={startCheckout} disabled={loading}
-            className="mt-8 w-full h-14 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white text-base font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+            className="mt-6 w-full h-14 rounded-full bg-gradient-to-r from-brand to-[#8B5CF6] hover:opacity-95 text-white text-base font-medium shadow-[0_16px_50px_-12px_rgba(109,94,247,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
             {loading ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing checkout…</>
             ) : (

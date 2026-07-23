@@ -11,7 +11,7 @@ import {
 } from "@/lib/metaPixel";
 
 const DEFAULT_PURCHASE = {
-  value: 299,
+  value: 249,
   currency: "INR",
   content_name: "AI Rizz Score",
   content_type: "product",
@@ -101,9 +101,12 @@ export default function ThankYou() {
         <h1 className="font-outfit text-3xl font-semibold tracking-tight text-ink mb-2">
           Payment Successful
         </h1>
-        <p className="text-ink-muted mb-8">
+        <p className="text-ink-muted mb-3">
           Your AI Rizz Report is being generated
         </p>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium mb-6">
+          You saved ₹250 today 🎉
+        </div>
 
         <Button
           onClick={() => navigate("/complete-details")}
