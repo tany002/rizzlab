@@ -231,10 +231,10 @@ async def get_onboarding(user: User = Depends(get_current_user)):
 # Single source-of-truth for pricing. All payment routes reference this.
 PRICING = {
     "regularPrice": 499,
-    "salePrice": 249,
-    "discountPercent": 50,
-    "discountAmount": 250,
-    "offerName": "Weekend Offer",
+    "salePrice": 49,
+    "discountPercent": 90,
+    "discountAmount": 450,
+    "offerName": "Flash Offer",
 }
 
 
