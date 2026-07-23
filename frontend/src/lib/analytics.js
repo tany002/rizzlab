@@ -72,3 +72,31 @@ export function trackLandingView() {
     // swallow
   }
 }
+
+/** Fire when the weekend-offer pricing section becomes visible. */
+export function trackPricingOfferView() {
+  trackEvent("pricing_offer_view");
+}
+
+/** Fire when a CTA inside the pricing offer section is clicked. */
+export function trackPricingOfferCtaClick() {
+  trackEvent("pricing_offer_cta_click");
+}
+
+/** Fire immediately before the Razorpay order is created. */
+export function trackPaymentStarted() {
+  trackEvent("payment_started");
+}
+
+/**
+ * Fire after a payment is verified as paid.
+ * @param {number} priceShown - Regular/display price (e.g. 499)
+ * @param {number} pricePaid  - Amount actually charged (e.g. 249)
+ */
+export function trackPaymentSuccess(priceShown, pricePaid) {
+  trackEvent("payment_success", {
+    priceShown,
+    pricePaid,
+    discountApplied: pricePaid < priceShown,
+  });
+}

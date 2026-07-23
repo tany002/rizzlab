@@ -228,9 +228,19 @@ async def get_onboarding(user: User = Depends(get_current_user)):
 
 # ------------------ Payments (Razorpay Standard Checkout) ------------------
 
+# Single source-of-truth for pricing. All payment routes reference this.
+PRICING = {
+    "regularPrice": 499,
+    "salePrice": 249,
+    "discountPercent": 50,
+    "discountAmount": 250,
+    "offerName": "Weekend Offer",
+}
+
+
 class CheckoutOrder(BaseModel):
     plan: str = "ai_review"
-    amount: int = 299  # rupees; converted to paise for razorpay
+    amount: int = PRICING["salePrice"]  # rupees; converted to paise for razorpay
     email: Optional[str] = None
 
 
@@ -317,7 +327,7 @@ async def payments_create_order(payload: CheckoutOrder, request: Request):
     """Creates a real Razorpay Order. Server-side only. Amount is in RUPEES; converted to paise."""
     if not razorpay_client:
         raise HTTPException(status_code=500, detail="Razorpay is not configured")
-    if payload.amount not in (299, 4999):
+    if payload.amount not in (PRICING["salePrice"], 4999):
         raise HTTPException(status_code=400, detail="Unsupported amount")
 
     user = await _get_optional_user(request)
@@ -857,7 +867,15 @@ async def root():
 
 # ------------------ Analytics ------------------
 
-_ALLOWED_EVENTS = {"landing_view", "find_out_why_click", "razorpay_opened"}
+_ALLOWED_EVENTS = {
+    "landing_view",
+    "find_out_why_click",
+    "razorpay_opened",
+    "pricing_offer_view",
+    "pricing_offer_cta_click",
+    "payment_started",
+    "payment_success",
+}
 
 
 class VisitorEventPayload(BaseModel):
@@ -872,6 +890,10 @@ class VisitorEventPayload(BaseModel):
     utm_content: Optional[str] = None
     fbclid: Optional[str] = None
     userAgent: Optional[str] = None
+    # Pricing-offer fields (payment_success, etc.)
+    priceShown: Optional[int] = None
+    pricePaid: Optional[int] = None
+    discountApplied: Optional[bool] = None
 
 
 @api_router.post("/analytics/event")
@@ -914,12 +936,18 @@ async def analytics_funnel():
             "landing_views": today.get("landing_view", 0),
             "find_out_why_clicks": today.get("find_out_why_click", 0),
             "razorpay_opened": today.get("razorpay_opened", 0),
+            "pricing_offer_views": today.get("pricing_offer_view", 0),
+            "pricing_offer_cta_clicks": today.get("pricing_offer_cta_click", 0),
+            "payment_started": today.get("payment_started", 0),
             "payment_successes": today["payment_success"],
         },
         "lifetime": {
             "landing_views": lifetime.get("landing_view", 0),
             "find_out_why_clicks": lifetime.get("find_out_why_click", 0),
             "razorpay_opened": lifetime.get("razorpay_opened", 0),
+            "pricing_offer_views": lifetime.get("pricing_offer_view", 0),
+            "pricing_offer_cta_clicks": lifetime.get("pricing_offer_cta_click", 0),
+            "payment_started": lifetime.get("payment_started", 0),
             "payment_successes": lifetime["payment_success"],
         },
     }

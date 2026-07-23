@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LANDING } from "@/constants/testIds";
 import heroBefore from "../assets/hero-before.png";
 import heroAfter from "../assets/hero-after.png";
-import { trackLandingView, trackEvent } from "@/lib/analytics";
+import { trackLandingView, trackEvent, trackPricingOfferView, trackPricingOfferCtaClick } from "@/lib/analytics";
 
 const CTA = "Find Out Why";
 const CTA_HINT = "Upload your profile · Get your score in ~2 min · Private";
@@ -16,6 +16,24 @@ const CTA_BASE =
   "shadow-[0_4px_28px_-2px_rgba(109,94,247,0.45)] " +
   "hover:shadow-[0_16px_48px_-4px_rgba(109,94,247,0.62)] " +
   "hover:scale-[1.045] active:scale-[0.96] transition-all duration-100";
+
+function WeekendBadge() {
+  useEffect(() => {
+    trackPricingOfferView();
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: 0.4 }}
+      className="inline-flex items-baseline gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-orange-200 shadow-[0_2px_12px_-2px_rgba(234,88,12,0.18)] select-none"
+    >
+      <span className="text-base font-extrabold text-orange-500 leading-none">🔥 50% OFF</span>
+      <span className="text-[10px] font-medium text-orange-400/90 leading-none">Valid until midnight only</span>
+    </motion.div>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -222,6 +240,7 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const goPay = () => {
     trackEvent("find_out_why_click");
+    trackPricingOfferCtaClick();
     navigate("/payment?plan=ai_review");
   };
 
@@ -298,7 +317,11 @@ export default function Landing() {
               <p>Find out what's really pushing matches away before she even reads your bio.</p>
             </motion.div>
 
-            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-9 sm:mt-11">
+            <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mt-7 sm:mt-9">
+              <WeekendBadge />
+            </motion.div>
+
+            <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-5 sm:mt-7">
               <CtaBlock testId={LANDING.ctaPrimary} className="text-left sm:text-center lg:text-left" />
             </motion.div>
           </div>
