@@ -17,7 +17,45 @@ const CTA_BASE =
   "hover:shadow-[0_16px_48px_-4px_rgba(109,94,247,0.62)] " +
   "hover:scale-[1.045] active:scale-[0.96] transition-all duration-100";
 
+const OFFER_DURATION_MS = 3 * 60 * 60 * 1000; // 3 hours in ms
+const OFFER_END_KEY = "_rl_offer_end";
+
+function getOrSetOfferEnd() {
+  try {
+    const stored = localStorage.getItem(OFFER_END_KEY);
+    if (stored) {
+      const end = parseInt(stored, 10);
+      if (!isNaN(end) && end > Date.now()) return end;
+    }
+    const end = Date.now() + OFFER_DURATION_MS;
+    localStorage.setItem(OFFER_END_KEY, String(end));
+    return end;
+  } catch {
+    return Date.now() + OFFER_DURATION_MS;
+  }
+}
+
+function useOfferCountdown() {
+  const [endTime] = useState(getOrSetOfferEnd);
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, endTime - Date.now()));
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTimeLeft(Math.max(0, endTime - Date.now()));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [endTime]);
+
+  const totalSec = Math.floor(timeLeft / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function WeekendBadge() {
+  const timer = useOfferCountdown();
+
   useEffect(() => {
     trackPricingOfferView();
   }, []);
@@ -27,10 +65,28 @@ function WeekendBadge() {
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: 0.4 }}
-      className="inline-flex items-baseline gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-orange-200 shadow-[0_2px_12px_-2px_rgba(234,88,12,0.18)] select-none"
+      className="inline-flex flex-col items-start gap-1.5 px-4 py-2.5 rounded-2xl bg-white border border-orange-200/80 shadow-[0_2px_12px_-2px_rgba(234,88,12,0.18)] select-none"
     >
+      {/* Line 1 — main offer */}
       <span className="text-base font-extrabold text-orange-500 leading-none">🔥 90% OFF</span>
-      <span className="text-[10px] font-medium text-orange-400/90 leading-none">Valid until midnight only</span>
+
+      {/* Line 2 — strikethrough */}
+      <span className="text-[11px] font-medium text-zinc-600/45 line-through leading-none">
+        Valid until midnight
+      </span>
+
+      {/* Line 3 — live countdown */}
+      <span className="inline-flex items-center gap-1 leading-none">
+        <span className="text-[11px]">⏳</span>
+        <span className="text-[11px] font-medium text-violet-600">Ends in</span>
+        <motion.span
+          animate={{ opacity: [1, 0.6, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="text-[12px] font-bold bg-gradient-to-r from-[#F472B6] to-[#7C3AED] bg-clip-text text-transparent"
+        >
+          {timer}
+        </motion.span>
+      </span>
     </motion.div>
   );
 }
