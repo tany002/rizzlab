@@ -105,7 +105,7 @@ export default function ThankYou() {
           Your AI Rizz Report is being generated
         </p>
         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium mb-6">
-          You saved ₹250 today 🎉
+          You saved ₹450 today 🎉
         </div>
 
         <Button

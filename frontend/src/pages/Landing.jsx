@@ -29,7 +29,7 @@ function WeekendBadge() {
       transition={{ duration: 0.45, delay: 0.4 }}
       className="inline-flex items-baseline gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-orange-200 shadow-[0_2px_12px_-2px_rgba(234,88,12,0.18)] select-none"
     >
-      <span className="text-base font-extrabold text-orange-500 leading-none">🔥 50% OFF</span>
+      <span className="text-base font-extrabold text-orange-500 leading-none">🔥 90% OFF</span>
       <span className="text-[10px] font-medium text-orange-400/90 leading-none">Valid until midnight only</span>
     </motion.div>
   );
