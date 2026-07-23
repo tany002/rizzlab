@@ -35,6 +35,42 @@ function WeekendBadge() {
   );
 }
 
+function RizzLabIcon({ className = "" }) {
+  return (
+    <svg
+      viewBox="0 0 24 30"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="rl-brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F472B6" />
+          <stop offset="100%" stopColor="#7C3AED" />
+        </linearGradient>
+      </defs>
+      {/* Flask body */}
+      <path
+        d="M 8 1 L 8 10 L 2 20 Q 0.5 28.5 12 28.5 Q 23.5 28.5 22 20 L 16 10 L 16 1 Z"
+        fill="url(#rl-brand-grad)"
+        fillOpacity="0.13"
+        stroke="url(#rl-brand-grad)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* Neck cap */}
+      <line x1="6" y1="1" x2="18" y2="1" stroke="url(#rl-brand-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Heart */}
+      <path
+        d="M 12 23 C 12 23 7.5 19.5 7.5 17 C 7.5 15.2 8.8 14 10.5 14 C 11.3 14 12 14.8 12 14.8 C 12 14.8 12.7 14 13.5 14 C 15.2 14 16.5 15.2 16.5 17 C 16.5 19.5 12 23 12 23 Z"
+        fill="url(#rl-brand-grad)"
+      />
+    </svg>
+  );
+}
+
 function SocialProofBanner() {
   return (
     <motion.div
@@ -46,10 +82,10 @@ function SocialProofBanner() {
       <span className="w-[22px] h-[22px] rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
         <User className="w-3 h-3 text-zinc-500" strokeWidth={1.8} />
       </span>
-      <span className="text-sm text-zinc-500 leading-none">
+      <span className="text-sm text-[#222] leading-none">
         My coworker got{" "}
-        <span className="font-semibold text-zinc-700">20 matches</span>. I got{" "}
-        <span className="font-semibold text-zinc-700">2</span>.
+        <span className="font-bold bg-gradient-to-r from-brand to-[#8B5CF6] bg-clip-text text-transparent">20 matches</span>. I got{" "}
+        <span className="font-bold bg-gradient-to-r from-brand to-[#8B5CF6] bg-clip-text text-transparent">2</span>.
       </span>
     </motion.div>
   );
@@ -331,9 +367,10 @@ export default function Landing() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <span className="font-outfit font-bold text-xl tracking-[-0.02em]" data-testid="nav-logo">
-            RizzLab
-          </span>
+          <div className="flex items-center gap-2.5" data-testid="nav-logo">
+            <RizzLabIcon className="h-7 w-auto" />
+            <span className="font-outfit font-bold text-xl tracking-[-0.02em]">RizzLab</span>
+          </div>
           <LandingCta testId="nav-cta" size="nav" onClick={goPay} />
         </div>
       </motion.header>
