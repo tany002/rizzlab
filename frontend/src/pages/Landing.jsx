@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Lock, AlertCircle, CheckCircle2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LANDING } from "@/constants/testIds";
 import heroBefore from "../assets/hero-before.png";
@@ -32,6 +32,56 @@ function WeekendBadge() {
       <span className="text-base font-extrabold text-orange-500 leading-none">🔥 90% OFF</span>
       <span className="text-[10px] font-medium text-orange-400/90 leading-none">Valid until midnight only</span>
     </motion.div>
+  );
+}
+
+function SocialProofBanner() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-zinc-50 border border-zinc-200/80 shadow-sm mb-6 sm:mb-7"
+    >
+      <span className="w-[22px] h-[22px] rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
+        <User className="w-3 h-3 text-zinc-500" strokeWidth={1.8} />
+      </span>
+      <span className="text-sm text-zinc-500 leading-none">
+        My coworker got{" "}
+        <span className="font-semibold text-zinc-700">20 matches</span>. I got{" "}
+        <span className="font-semibold text-zinc-700">2</span>.
+      </span>
+    </motion.div>
+  );
+}
+
+function ThisUnderline() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="absolute left-0 w-full pointer-events-none overflow-visible"
+      style={{ bottom: "-0.13em" }}
+      height="0.28em"
+      viewBox="0 0 100 9"
+      preserveAspectRatio="none"
+    >
+      <path
+        d="M 1,3.5 C 20,1.5 50,5.5 99,3"
+        stroke="#6D5EF7"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.65"
+      />
+      <path
+        d="M 2,7 C 22,5 52,8.5 98,6.5"
+        stroke="#6D5EF7"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.35"
+      />
+    </svg>
   );
 }
 
@@ -296,6 +346,8 @@ export default function Landing() {
 
         <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-16 sm:pt-24 pb-20 sm:pb-28 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div>
+            <SocialProofBanner />
+
             <motion.h1
               initial="hidden"
               animate="visible"
@@ -303,7 +355,11 @@ export default function Landing() {
               variants={fadeUp}
               className="font-outfit text-[46px] leading-[1.0] sm:text-[64px] lg:text-[88px] font-bold tracking-[-0.05em] text-ink text-balance"
             >
-              Women Swipe Left Because Of This.
+              Women Swipe Left Because Of{" "}
+              <span className="relative inline-block whitespace-nowrap">
+                This.
+                <ThisUnderline />
+              </span>
             </motion.h1>
 
             <motion.div
